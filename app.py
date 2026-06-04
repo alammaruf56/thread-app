@@ -1,8 +1,6 @@
 import streamlit as st
 import mysql.connector
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import datetime
 
 # ══════════════════════════════════════════════════════════════
@@ -20,7 +18,7 @@ st.set_page_config(
 # ══════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght=300;400;500;600;700&family=Playfair+Display:wght=400;600;700&family=IBM+Plex+Mono:wght=300;400;500&display=swap');
 
 html, body, [class*="css"], .stApp {
     background-color: #FDFBF7 !important;
@@ -320,14 +318,14 @@ else:
     st.sidebar.markdown("<div style='background:#2e1a1a;border:1px solid #5a2d2d;border-radius:6px;padding:8px 12px;font-family:monospace;font-size:0.7rem;color:#cf7e7e;margin-bottom:16px'>● Demo Mode (no DB)</div>", unsafe_allow_html=True)
 
 PAGES = {
-    "📊  Dashboard":        "dashboard",
+    "   Dashboard":        "dashboard",
     "🔍  Smart Search":     "search",
-    "🧵  Products":         "products",
-    "🏭  Suppliers":        "suppliers",
-    "🤝  Sellers":          "sellers",
-    "👥  Customers":        "customers",
-    "💰  Sales & Stock":    "sales",
-    "📈  Reports":          "reports",
+    "    Products":         "products",
+    "    Suppliers":        "suppliers",
+    "    Sellers":          "sellers",
+    "   Customers":        "customers",
+    "  Sales & Stock":    "sales",
+    "  Reports":          "reports",
     "⚙️  Store Settings":   "settings",
 }
 
@@ -392,7 +390,7 @@ if page == "dashboard":
     with col1:
         st.markdown("### Recent Transactions")
         if db_ok:
-            recent = qry("SELECT t.transaction_date, t.product_name, t.transaction_type, t.sale_vector, t.quantity, t.total_price, c.customer_name FROM transactions t LEFT JOIN customers c ON c.customer_id=t.customer_id ORDER BY t.created_at DESC LIMIT 10", fetch=True)
+            recent = qry("SELECT t.transaction_date, t.product_name, t.transaction_type, t.sale_vector, t.quantity, t.total_price, c.customer_name FROM transactions t LEFT JOIN customers c ON c.customer_id=t.customer_id ORDER BY t.transaction_date DESC LIMIT 10", fetch=True)
         else:
             recent = pd.DataFrame(st.session_state.transactions).sort_values("transaction_id", ascending=False).head(10)
         if recent is not None and not recent.empty:
@@ -524,7 +522,7 @@ elif page == "products":
     with tab1:
         col1, col2, col3 = st.columns([3,1,1])
         search_p = col1.text_input("", placeholder="🔍 Search by name, SKU, colour, category...", key="psearch", label_visibility="collapsed")
-        cat_filter = col2.selectbox("Category", ["All","Cotton","Silk","Polyester","Wool","Nylon","Mixed","Other"], label_visibility="collapsed")
+        cat_filter = col2.text_input("Filter Category", placeholder="All")
         stk_filter = col3.selectbox("Stock", ["All Stock","Low Stock","Out of Stock"], label_visibility="collapsed")
 
         if db_ok:
@@ -534,8 +532,9 @@ elif page == "products":
                 sql += " AND (p.product_name LIKE %s OR p.sku_code LIKE %s OR p.colour LIKE %s OR p.barcode LIKE %s)"
                 like = f"%{search_p}%"
                 params += [like]*4
-            if cat_filter != "All":
-                sql += " AND p.category=%s"; params.append(cat_filter)
+            if cat_filter and cat_filter != "All":
+                sql += " AND p.category LIKE %s"
+                params.append(f"%{cat_filter}%")
             if stk_filter == "Low Stock":
                 sql += " AND p.current_stock <= p.low_stock_threshold AND p.current_stock > 0"
             elif stk_filter == "Out of Stock":
@@ -546,7 +545,8 @@ elif page == "products":
             df = pd.DataFrame(st.session_state.products)
             if search_p:
                 df = df[df.apply(lambda r: any(search_p.lower() in str(r[c]).lower() for c in ["product_name","sku_code","colour","category"]), axis=1)]
-            if cat_filter != "All": df = df[df["category"]==cat_filter]
+            if cat_filter and cat_filter != "All": 
+                df = df[df["category"].str.lower().str.contains(cat_filter.lower(), na=False)]
             if stk_filter == "Low Stock": df = df[df["current_stock"] <= df["low_stock_threshold"]]
             elif stk_filter == "Out of Stock": df = df[df["current_stock"] <= 0]
 
@@ -570,7 +570,9 @@ elif page == "products":
             p_name   = c1.text_input("Product Name *")
             p_sku    = c2.text_input("SKU / Code")
             p_barcode= c1.text_input("Barcode (optional)")
-            p_cat    = c2.selectbox("Category", ["Cotton","Silk","Polyester","Wool","Nylon","Mixed","Other"])
+            
+            p_cat    = c2.text_input("Category")
+            
             p_colour = c1.text_input("Colour")
             p_spec   = c2.text_input("Specification (e.g. 40/2)")
             p_sup    = c1.selectbox("Supplier", sup_names if sup_names else ["—"])
@@ -592,8 +594,8 @@ elif page == "products":
                 else:
                     sid = sup_map.get(p_sup)
                     if db_ok:
-                        qry("INSERT INTO products (product_name,sku_code,barcode,category,colour,spec,source_id,buy_price,sell_retail,sell_wholesale,current_stock,unit,low_stock_threshold) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                            (p_name,p_sku or None,p_barcode or None,p_cat,p_colour or None,p_spec or None,sid,p_buy,p_sret,p_swhl,p_stock,p_unit,p_low))
+                        qry("INSERT INTO products (product_name,sku_code,barcode,category,colour,spec,source_id,buy_price,sell_retail,sell_wholesale,current_stock,low_stock_threshold,unit) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            (p_name,p_sku or None,p_barcode or None,p_cat,p_colour or None,p_spec or None,sid,p_buy,p_sret,p_swhl,p_stock,p_low,p_unit))
                     else:
                         nid = max((p["product_id"] for p in st.session_state.products), default=0)+1
                         st.session_state.products.append({"product_id":nid,"product_name":p_name,"sku_code":p_sku,"barcode":p_barcode,"category":p_cat,"colour":p_colour,"spec":p_spec,"source_id":sid,"buy_price":p_buy,"sell_retail":p_sret,"sell_wholesale":p_swhl,"current_stock":p_stock,"low_stock_threshold":p_low,"unit":p_unit,"is_active":1})
@@ -610,7 +612,7 @@ elif page == "suppliers":
 
     with tab1:
         if db_ok:
-            df = qry("SELECT source_name, phone, speciality, address, pay_terms, notes, created_at FROM sources ORDER BY source_name", fetch=True)
+            df = qry("SELECT source_name, phone, speciality, address, pay_terms, notes FROM sources ORDER BY source_name", fetch=True)
         else:
             df = pd.DataFrame(st.session_state.sources)
         if df is not None and not df.empty:
@@ -623,7 +625,7 @@ elif page == "suppliers":
             c1,c2 = st.columns(2)
             s_name = c1.text_input("Supplier Name *")
             s_phone= c2.text_input("Phone")
-            s_spec = c1.text_input("Speciality (e.g. Cotton, Silk)")
+            s_spec = c1.text_input("Speciality")
             s_pay  = c2.text_input("Payment Terms (e.g. Cash, 30 days)")
             s_addr = st.text_area("Address")
             s_notes= st.text_area("Notes")
@@ -643,437 +645,190 @@ elif page == "suppliers":
 #  5. SELLERS
 # ══════════════════════════════════════════════════════════════
 elif page == "sellers":
-    page_header("Records", "Sellers", "Register sellers and assign products to them")
-
-    tab1, tab2, tab3 = st.tabs(["📋  View Sellers", "➕  Add Seller", "🔗  Assign Products"])
-
+    page_header("Records", "Sellers", "Manage dynamic distribution loops and fields")
+    
+    tab1, tab2 = st.tabs(["📋 View Sellers", "➕ Add Seller"])
+    
     with tab1:
-        sq = st.text_input("", placeholder="🔍 Search seller by name, phone, area...", key="seller_search", label_visibility="collapsed")
         if db_ok:
-            sql = "SELECT s.seller_id, s.seller_name, s.phone, s.area, s.address, GROUP_CONCAT(p.product_name ORDER BY p.product_name SEPARATOR ' | ') as products_selling FROM sellers s LEFT JOIN seller_products sp ON sp.seller_id=s.seller_id LEFT JOIN products p ON p.product_id=sp.product_id WHERE s.is_active=1"
-            params = []
-            if sq:
-                sql += " AND (s.seller_name LIKE %s OR s.phone LIKE %s OR s.area LIKE %s)"
-                like = f"%{sq}%"; params=[like,like,like]
-            sql += " GROUP BY s.seller_id ORDER BY s.seller_name"
-            df = qry(sql, params or None, fetch=True)
+            df = qry("SELECT seller_name, phone, area, address, notes FROM sellers WHERE is_active=1 ORDER BY seller_name", fetch=True)
         else:
             df = pd.DataFrame(st.session_state.sellers)
-            if sq:
-                df = df[df.apply(lambda r: any(sq.lower() in str(r[c]).lower() for c in ["seller_name","phone","area"]), axis=1)]
-
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
-
-            # Seller detail card
-            sel_names = list(df["seller_name"])
-            chosen = st.selectbox("View seller detail", ["— Select —"] + sel_names, key="sel_detail")
-            if chosen != "— Select —":
-                row = df[df["seller_name"]==chosen].iloc[0]
-                st.markdown(f"""
-                <div class='search-card'>
-                  <b style='font-size:1.1rem'>🤝 {row['seller_name']}</b><br>
-                  📞 {row.get('phone','—')} &nbsp;|&nbsp; 📍 {row.get('area','—')}<br>
-                  <b>Products selling:</b><br>
-                  <span style='font-family:monospace;font-size:0.8rem;color:#C4882A'>{row.get('products_selling','None assigned yet')}</span>
-                </div>""", unsafe_allow_html=True)
-
-                # Sales history for this seller
-                if db_ok:
-                    sid_val = int(row["seller_id"])
-                    sh = qry(f"SELECT transaction_date, product_name, sale_vector, quantity, total_price FROM transactions WHERE seller_id={sid_val} AND transaction_type='OUTPUT_SALE' ORDER BY transaction_date DESC LIMIT 20", fetch=True)
-                    if sh is not None and not sh.empty:
-                        st.markdown("**Recent Sales by this Seller:**")
-                        st.dataframe(sh, use_container_width=True, hide_index=True)
         else:
-            st.info("No sellers found.")
+            st.info("No active sellers enrolled yet.")
 
     with tab2:
         with st.form("seller_form", clear_on_submit=True):
-            c1,c2 = st.columns(2)
-            sl_name  = c1.text_input("Seller Name *")
-            sl_phone = c2.text_input("Phone *")
-            sl_area  = c1.text_input("Area / Zone (e.g. Mirpur, Uttara)")
-            sl_addr  = c2.text_input("Full Address")
-            sl_notes = st.text_area("Notes")
+            c1, c2 = st.columns(2)
+            sel_name = c1.text_input("Seller / Hub Name *")
+            sel_phone = c2.text_input("Contact Number")
+            sel_area = c1.text_input("Distribution Territory / Area")
+            sel_addr = st.text_area("Full Address")
+            sel_notes = st.text_area("Internal Assignment Notes")
+            
             if st.form_submit_button("➕ Register Seller"):
-                if not sl_name or not sl_phone:
-                    st.error("Name and phone required.")
+                if not sel_name:
+                    st.error("Seller name is structurally mandatory.")
                 else:
                     if db_ok:
-                        qry("INSERT INTO sellers (seller_name,phone,area,address,notes) VALUES(%s,%s,%s,%s,%s)",(sl_name,sl_phone,sl_area,sl_addr,sl_notes))
+                        qry("INSERT INTO sellers (seller_name, phone, area, address, notes, is_active) VALUES (%s, %s, %s, %s, %s, 1)",
+                            (sel_name, sel_phone, sel_area, sel_addr, sel_notes))
                     else:
-                        nid = max((s["seller_id"] for s in st.session_state.sellers),default=0)+1
-                        st.session_state.sellers.append({"seller_id":nid,"seller_name":sl_name,"phone":sl_phone,"area":sl_area,"address":sl_addr,"notes":sl_notes,"is_active":1})
-                    st.success(f"✓ Seller '{sl_name}' registered!")
+                        nid = max((s["seller_id"] for s in st.session_state.sellers), default=0) + 1
+                        st.session_state.sellers.append({"seller_id": nid, "seller_name": sel_name, "phone": sel_phone, "address": sel_addr, "area": sel_area, "notes": sel_notes, "is_active": 1})
+                    st.success(f"✓ Seller Unit '{sel_name}' registered successfully.")
                     st.rerun()
-
-    with tab3:
-        st.markdown("**Assign which products a seller is selling**")
-        sellers_df = get_sellers_list()
-        products_df = get_products_list()
-
-        if sellers_df.empty or products_df.empty:
-            st.warning("Add sellers and products first.")
-        else:
-            with st.form("assign_form", clear_on_submit=True):
-                c1,c2 = st.columns(2)
-                sel_names_list = list(sellers_df["seller_name"])
-                prod_names_list = list(products_df["product_name"])
-                sel_map  = dict(zip(sellers_df["seller_name"], sellers_df["seller_id"]))
-                prod_map = dict(zip(products_df["product_name"], products_df["product_id"]))
-
-                chosen_seller  = c1.selectbox("Select Seller", sel_names_list)
-                chosen_products= c2.multiselect("Select Products", prod_names_list)
-                assign_notes   = st.text_input("Notes (optional)")
-
-                if st.form_submit_button("🔗 Assign Products to Seller"):
-                    if not chosen_products:
-                        st.error("Select at least one product.")
-                    else:
-                        sid = sel_map[chosen_seller]
-                        added = 0
-                        for pname in chosen_products:
-                            pid = prod_map[pname]
-                            if db_ok:
-                                qry("INSERT IGNORE INTO seller_products (seller_id,product_id,notes) VALUES(%s,%s,%s)",(sid,pid,assign_notes))
-                                added += 1
-                            else:
-                                exists = any(sp["seller_id"]==sid and sp["product_id"]==pid for sp in st.session_state.seller_products)
-                                if not exists:
-                                    nid = len(st.session_state.seller_products)+1
-                                    st.session_state.seller_products.append({"id":nid,"seller_id":sid,"product_id":pid,"assigned_date":today(),"notes":assign_notes})
-                                    added += 1
-                        st.success(f"✓ Assigned {added} product(s) to {chosen_seller}!")
-                        st.rerun()
-
-        # Current assignments table
-        st.markdown("**Current Assignments:**")
-        if db_ok:
-            asgn = qry("SELECT sel.seller_name, sel.phone, p.product_name, p.category, sp.assigned_date FROM seller_products sp JOIN sellers sel ON sel.seller_id=sp.seller_id JOIN products p ON p.product_id=sp.product_id ORDER BY sel.seller_name", fetch=True)
-        else:
-            rows=[]
-            for sp in st.session_state.seller_products:
-                sel_ = next((s for s in st.session_state.sellers if s["seller_id"]==sp["seller_id"]),{})
-                prd_ = next((p for p in st.session_state.products if p["product_id"]==sp["product_id"]),{})
-                rows.append({"seller_name":sel_.get("seller_name",""),"phone":sel_.get("phone",""),"product_name":prd_.get("product_name",""),"category":prd_.get("category",""),"assigned_date":sp.get("assigned_date","")})
-            asgn = pd.DataFrame(rows)
-        if asgn is not None and not asgn.empty:
-            st.dataframe(asgn, use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════
 #  6. CUSTOMERS
 # ══════════════════════════════════════════════════════════════
 elif page == "customers":
-    page_header("Records", "Customers", "Buyer database with purchase history")
-
-    tab1, tab2 = st.tabs(["📋  View Customers", "➕  Add Customer"])
-
+    page_header("Records", "Customer Directory", "Customer profiles and interactions log")
+    
+    tab1, tab2 = st.tabs(["📋 View Directory", "➕ Add Client Profile"])
+    
     with tab1:
-        cq = st.text_input("", placeholder="🔍 Search customer by name or phone...", key="csearch", label_visibility="collapsed")
         if db_ok:
-            sql = "SELECT c.customer_id, c.customer_name, c.phone, c.address, COUNT(t.transaction_id) as orders, COALESCE(SUM(t.total_price),0) as total_spent FROM customers c LEFT JOIN transactions t ON t.customer_id=c.customer_id AND t.transaction_type='OUTPUT_SALE'"
-            params=[]
-            if cq:
-                sql += " WHERE c.customer_name LIKE %s OR c.phone LIKE %s"
-                like=f"%{cq}%"; params=[like,like]
-            sql += " GROUP BY c.customer_id ORDER BY total_spent DESC"
-            df = qry(sql, params or None, fetch=True)
+            df = qry("SELECT customer_name, phone, address, contact_notes FROM customers ORDER BY customer_name", fetch=True)
         else:
             df = pd.DataFrame(st.session_state.customers)
-            if cq:
-                df = df[df.apply(lambda r: any(cq.lower() in str(r[c]).lower() for c in ["customer_name","phone"]), axis=1)]
-
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
-
-            # Customer purchase history
-            cust_names = list(df["customer_name"])
-            chosen_c = st.selectbox("View purchase history", ["— Select —"]+cust_names, key="cust_hist")
-            if chosen_c != "— Select —":
-                row = df[df["customer_name"]==chosen_c].iloc[0]
-                st.markdown(f"""
-                <div class='search-card' style='border-left-color:#1a5f8a'>
-                  <b style='font-size:1.1rem'>👥 {row['customer_name']}</b><br>
-                  📞 {row.get('phone','—')} &nbsp;|&nbsp; 📍 {row.get('address','—')}<br>
-                  📦 Total Orders: <b>{row.get('orders','—')}</b> &nbsp;|&nbsp;
-                  💰 Total Spent: <b>{fmt_money(row.get('total_spent',0))}</b>
-                </div>""", unsafe_allow_html=True)
-
-                if db_ok:
-                    cid_val = int(row["customer_id"])
-                    ch = qry(f"SELECT transaction_date, product_name, sale_vector, quantity, unit_price, discount, total_price FROM transactions WHERE customer_id={cid_val} AND transaction_type='OUTPUT_SALE' ORDER BY transaction_date DESC LIMIT 30", fetch=True)
-                    if ch is not None and not ch.empty:
-                        st.markdown("**Purchase History:**")
-                        st.dataframe(ch, use_container_width=True, hide_index=True)
         else:
             st.info("No customers found.")
 
     with tab2:
         with st.form("cust_form", clear_on_submit=True):
-            c1,c2 = st.columns(2)
-            cu_name  = c1.text_input("Customer Name *")
-            cu_phone = c2.text_input("Phone *")
-            cu_addr  = st.text_input("Address")
-            cu_notes = st.text_area("Notes / Requirements")
-            if st.form_submit_button("➕ Add Customer"):
-                if not cu_name or not cu_phone:
-                    st.error("Name and phone required.")
+            c1, c2 = st.columns(2)
+            cust_name = c1.text_input("Customer Entity Name *")
+            cust_phone = c2.text_input("Primary Phone")
+            cust_addr = st.text_area("Billing/Delivery Address")
+            cust_notes = st.text_area("Category Details (Wholesale/Retail preferences)")
+            
+            if st.form_submit_button("➕ Save Profile"):
+                if not cust_name:
+                    st.error("Customer name cannot be empty.")
                 else:
                     if db_ok:
-                        qry("INSERT INTO customers (customer_name,phone,address,contact_notes) VALUES(%s,%s,%s,%s)",(cu_name,cu_phone,cu_addr,cu_notes))
+                        qry("INSERT INTO customers (customer_name, phone, address, contact_notes) VALUES (%s, %s, %s, %s)",
+                            (cust_name, cust_phone, cust_addr, cust_notes))
                     else:
-                        nid = max((c["customer_id"] for c in st.session_state.customers),default=0)+1
-                        st.session_state.customers.append({"customer_id":nid,"customer_name":cu_name,"phone":cu_phone,"address":cu_addr,"contact_notes":cu_notes})
-                    st.success(f"✓ Customer '{cu_name}' added!")
+                        nid = max((c["customer_id"] for c in st.session_state.customers), default=0) + 1
+                        st.session_state.customers.append({"customer_id": nid, "customer_name": cust_name, "phone": cust_phone, "address": cust_addr, "contact_notes": cust_notes})
+                    st.success(f"✓ Profile for '{cust_name}' created.")
                     st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 #  7. SALES & STOCK
 # ══════════════════════════════════════════════════════════════
 elif page == "sales":
-    page_header("Transactions", "Sales & Stock Management", "Record sales, restock and view transaction history")
-
-    tab1, tab2, tab3 = st.tabs(["💰  Record Sale", "📦  Stock Movement", "📋  Transaction History"])
-
-    products_df = get_products_list()
-    customers_df = get_customers_list()
-    sellers_df = get_sellers_list()
-
-    prod_names = list(products_df["product_name"]) if not products_df.empty else []
-    prod_map = {r["product_name"]:r for _,r in products_df.iterrows()} if not products_df.empty else {}
-    cust_names = ["Walk-in (no record)"] + (list(customers_df["customer_name"]) if not customers_df.empty else [])
-    cust_map = {"Walk-in (no record)": None}
-    if not customers_df.empty:
-        for _, r in customers_df.iterrows(): cust_map[r["customer_name"]] = r["customer_id"]
-    seller_names = ["— Not linked —"] + (list(sellers_df["seller_name"]) if not sellers_df.empty else [])
-    seller_map = {"— Not linked —": None}
-    if not sellers_df.empty:
-        for _, r in sellers_df.iterrows(): seller_map[r["seller_name"]] = r["seller_id"]
-
-    with tab1:
-        if not prod_names:
-            st.warning("Add products first before recording sales.")
-        else:
-            with st.form("sale_form", clear_on_submit=True):
-                c1,c2,c3 = st.columns(3)
-                sl_prod   = c1.selectbox("Product *", prod_names)
-                sl_type   = c2.selectbox("Sale Type", ["RETAIL","WHOLESALE"])
-                sl_date   = c3.date_input("Sale Date", value=datetime.date.today())
-                c4,c5     = st.columns(2)
-                sl_cust   = c4.selectbox("Customer", cust_names)
-                sl_seller = c5.selectbox("Linked Seller (optional)", seller_names)
-
-                prod_info = prod_map.get(sl_prod, {})
-                default_price = float(prod_info.get("sell_retail",0) if sl_type=="RETAIL" else prod_info.get("sell_wholesale",0))
-
-                c6,c7,c8 = st.columns(3)
-                sl_qty   = c6.number_input("Quantity *", min_value=1, step=1)
-                sl_price = c7.number_input("Unit Price (৳)", min_value=0.0, value=default_price, step=0.5)
-                sl_disc  = c8.number_input("Discount (৳)", min_value=0.0, step=0.5)
-                sl_notes = st.text_input("Notes (optional)")
-
-                avail = int(prod_info.get("current_stock",0))
-                total = max((sl_qty * sl_price) - sl_disc, 0)
-                st.markdown(f"""
-                <div style='background:#F0F8F4;border:1px solid #b8dcc8;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:0.82rem'>
-                  Available stock: <b style='color:#2d7a4a'>{avail} {prod_info.get('unit','')}</b> &nbsp;|&nbsp;
-                  Total: <b style='color:#C4882A;font-size:1rem'>{fmt_money(total)}</b>
-                </div>""", unsafe_allow_html=True)
-
-                if st.form_submit_button("✅ Record Sale"):
-                    if sl_qty > avail:
-                        st.error(f"❌ Not enough stock! Available: {avail}")
-                    elif sl_qty <= 0:
-                        st.error("Quantity must be at least 1.")
+    page_header("Operations", "Dispatches & Inventory Inbound", "Post stock reductions or supply orders")
+    
+    col_p = get_products_list()
+    col_s = get_sellers_list()
+    col_c = get_customers_list()
+    
+    if col_p.empty:
+        st.warning("Please configure products first before logging sales transactions.")
+    else:
+        with st.form("transaction_form", clear_on_submit=True):
+            t_type = st.selectbox("Transaction Flow Type", ["OUTPUT_SALE", "INPUT_RESTOCK", "DAMAGED", "RETURN"])
+            
+            c1, c2 = st.columns(2)
+            p_choice = c1.selectbox("Target Product Thread", col_p["product_name"].tolist())
+            p_row = col_p[col_p["product_name"] == p_choice].iloc[0]
+            
+            vector = c2.selectbox("Sale Vector Format", ["RETAIL", "WHOLESALE", "N/A"])
+            qty_input = c1.number_input("Quantity Volumetric Unit", min_value=1, step=1)
+            
+            fallback_price = float(p_row["sell_wholesale"] if vector == "WHOLESALE" else p_row["sell_retail"])
+            u_price = c2.number_input("Custom Execution Rate (Per Unit)", min_value=0.0, value=fallback_price, step=0.5)
+            discount = c1.number_input("Discount Deductions Applied", min_value=0.0, step=1.0)
+            
+            c_choice = c2.selectbox("Assigned Buyer Client", ["None"] + (col_c["customer_name"].tolist() if not col_c.empty else []))
+            s_choice = c1.selectbox("Fulfillment Sales Representative", ["None"] + (col_s["seller_name"].tolist() if not col_s.empty else []))
+            
+            t_notes = st.text_area("Transaction Context Signature")
+            
+            if st.form_submit_button("💾 Dispatch Order and Synchronize Inventories"):
+                tot_price = (qty_input * u_price) - discount
+                cid = None if c_choice == "None" else int(col_c[col_c["customer_name"] == c_choice].iloc[0]["customer_id"])
+                sid = None if s_choice == "None" else int(col_s[col_s["seller_name"] == s_choice].iloc[0]["seller_id"])
+                
+                # Check Stock constraints dynamically
+                if t_type in ["OUTPUT_SALE", "DAMAGED"] and int(p_row["current_stock"]) < qty_input:
+                    st.error(f"Insufficient stock allocation available. Present balance: {p_row['current_stock']}")
+                else:
+                    if t_type in ["INPUT_RESTOCK", "RETURN"]:
+                        new_stock = int(p_row["current_stock"]) + qty_input
                     else:
-                        pid    = int(prod_info.get("product_id",0))
-                        cid    = cust_map.get(sl_cust)
-                        sel_id = seller_map.get(sl_seller)
-                        new_stk = avail - sl_qty
-                        if db_ok:
-                            qry("INSERT INTO transactions (transaction_date,product_id,product_name,transaction_type,sale_vector,quantity,unit_price,discount,total_price,customer_id,seller_id,notes) VALUES(%s,%s,%s,'OUTPUT_SALE',%s,%s,%s,%s,%s,%s,%s,%s)",
-                                (sl_date.isoformat(), pid, sl_prod, sl_type, sl_qty, sl_price, sl_disc, total, cid, sel_id, sl_notes))
-                            qry("UPDATE products SET current_stock=%s WHERE product_id=%s",(new_stk, pid))
-                        else:
-                            for p in st.session_state.products:
-                                if p["product_id"]==pid: p["current_stock"]=new_stk
-                            nid = max((t["transaction_id"] for t in st.session_state.transactions),default=0)+1
-                            st.session_state.transactions.append({"transaction_id":nid,"transaction_date":sl_date.isoformat(),"product_id":pid,"product_name":sl_prod,"transaction_type":"OUTPUT_SALE","sale_vector":sl_type,"quantity":sl_qty,"unit_price":sl_price,"discount":sl_disc,"total_price":total,"customer_id":cid,"seller_id":sel_id,"notes":sl_notes})
-                        st.success(f"✓ Sale recorded! Total: {fmt_money(total)} | Remaining stock: {new_stk}")
-                        st.rerun()
-
-    with tab2:
-        if not prod_names:
-            st.warning("Add products first.")
-        else:
-            with st.form("stock_form", clear_on_submit=True):
-                c1,c2 = st.columns(2)
-                stk_prod = c1.selectbox("Product *", prod_names, key="stk_prod")
-                stk_type = c2.selectbox("Movement Type", ["INPUT_RESTOCK","DAMAGED","RETURN"])
-                stk_date = c1.date_input("Date", value=datetime.date.today(), key="stk_date")
-                stk_qty  = c2.number_input("Quantity *", min_value=1, step=1, key="stk_qty")
-                stk_src  = st.text_input("Source / Reason (e.g. From supplier, Invoice #12)")
-                stk_notes= st.text_area("Notes")
-
-                if st.form_submit_button("📦 Save Movement"):
-                    prod_info2 = prod_map.get(stk_prod,{})
-                    pid2 = int(prod_info2.get("product_id",0))
-                    cur_stk = int(prod_info2.get("current_stock",0))
-                    new_stk2 = cur_stk + stk_qty if stk_type in ["INPUT_RESTOCK","RETURN"] else max(cur_stk - stk_qty, 0)
+                        new_stock = int(p_row["current_stock"]) - qty_input
+                    
                     if db_ok:
-                        qry("INSERT INTO transactions (transaction_date,product_id,product_name,transaction_type,sale_vector,quantity,unit_price,discount,total_price,notes) VALUES(%s,%s,%s,%s,'N/A',%s,0,0,0,%s)",
-                            (stk_date.isoformat(),pid2,stk_prod,stk_type,stk_qty,f"{stk_src} | {stk_notes}".strip(" |")))
-                        qry("UPDATE products SET current_stock=%s WHERE product_id=%s",(new_stk2,pid2))
+                        qry("INSERT INTO transactions (transaction_date, product_id, product_name, transaction_type, sale_vector, quantity, unit_price, discount, total_price, customer_id, seller_id, notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            (today(), int(p_row["product_id"]), p_choice, t_type, vector, qty_input, u_price, discount, tot_price, cid, sid, t_notes))
+                        qry("UPDATE products SET current_stock=%s WHERE product_id=%s", (new_stock, int(p_row["product_id"])))
                     else:
+                        nid = max((t["transaction_id"] for t in st.session_state.transactions), default=0) + 1
+                        st.session_state.transactions.append({
+                            "transaction_id": nid, "transaction_date": today(), "product_id": int(p_row["product_id"]), "product_name": p_choice,
+                            "transaction_type": t_type, "sale_vector": vector, "quantity": qty_input, "unit_price": u_price, "discount": discount,
+                            "total_price": tot_price, "customer_id": cid, "seller_id": sid, "notes": t_notes
+                        })
                         for p in st.session_state.products:
-                            if p["product_id"]==pid2: p["current_stock"]=new_stk2
-                        nid=max((t["transaction_id"] for t in st.session_state.transactions),default=0)+1
-                        st.session_state.transactions.append({"transaction_id":nid,"transaction_date":stk_date.isoformat(),"product_id":pid2,"product_name":stk_prod,"transaction_type":stk_type,"sale_vector":"N/A","quantity":stk_qty,"unit_price":0,"discount":0,"total_price":0,"customer_id":None,"seller_id":None,"notes":stk_src})
-                    st.success(f"✓ {stk_type} recorded. New stock: {new_stk2}")
+                            if p["product_id"] == p_row["product_id"]:
+                                p["current_stock"] = new_stock
+                                
+                    st.success(f"✓ Transaction tracked correctly. Internal adjustments synchronized ({new_stock} remaining units).")
                     st.rerun()
-
-    with tab3:
-        c1,c2,c3 = st.columns(3)
-        hist_type = c1.selectbox("Type", ["All","OUTPUT_SALE","INPUT_RESTOCK","DAMAGED","RETURN"])
-        hist_from = c2.date_input("From", value=datetime.date.today() - datetime.timedelta(days=30))
-        hist_to   = c3.date_input("To",   value=datetime.date.today())
-        hist_q    = st.text_input("", placeholder="🔍 Filter by product or customer name...", label_visibility="collapsed")
-
-        if db_ok:
-            sql = "SELECT t.transaction_date, t.product_name, t.transaction_type, t.sale_vector, t.quantity, t.unit_price, t.discount, t.total_price, c.customer_name, s.seller_name, t.notes FROM transactions t LEFT JOIN customers c ON c.customer_id=t.customer_id LEFT JOIN sellers s ON s.seller_id=t.seller_id WHERE t.transaction_date BETWEEN %s AND %s"
-            params = [hist_from.isoformat(), hist_to.isoformat()]
-            if hist_type != "All":
-                sql += " AND t.transaction_type=%s"; params.append(hist_type)
-            if hist_q:
-                sql += " AND (t.product_name LIKE %s OR c.customer_name LIKE %s)"
-                like=f"%{hist_q}%"; params+=[like,like]
-            sql += " ORDER BY t.created_at DESC LIMIT 200"
-            h_df = qry(sql, params, fetch=True)
-        else:
-            h_df = pd.DataFrame(st.session_state.transactions)
-            if hist_type != "All": h_df = h_df[h_df["transaction_type"]==hist_type]
-            if hist_q: h_df = h_df[h_df["product_name"].str.contains(hist_q,case=False,na=False)]
-
-        if h_df is not None and not h_df.empty:
-            total_shown = h_df["total_price"].apply(pd.to_numeric, errors="coerce").sum() if "total_price" in h_df else 0
-            st.markdown(f"<span style='font-family:monospace;font-size:0.78rem;color:#888'>{len(h_df)} records &nbsp;|&nbsp; Total: <b style='color:#C4882A'>{fmt_money(total_shown)}</b></span>", unsafe_allow_html=True)
-            st.dataframe(h_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No transactions found for this filter.")
 
 # ══════════════════════════════════════════════════════════════
 #  8. REPORTS
 # ══════════════════════════════════════════════════════════════
 elif page == "reports":
-    page_header("Analytics", "Business Reports", "Revenue, profit, top products and more")
-
+    page_header("Analytics", "Performance Intelligence Reports", "A summary analysis of commercial performance metrics")
+    
     if db_ok:
-        # Revenue by type
-        rev_df = qry("SELECT sale_vector, COUNT(*) as txn, SUM(total_price) as revenue FROM transactions WHERE transaction_type='OUTPUT_SALE' GROUP BY sale_vector", fetch=True)
-        # Top products
-        top_df = qry("SELECT product_name, COUNT(*) as sales_count, SUM(quantity) as total_qty, SUM(total_price) as revenue FROM transactions WHERE transaction_type='OUTPUT_SALE' GROUP BY product_name ORDER BY revenue DESC LIMIT 10", fetch=True)
-        # Daily sales last 30 days
-        daily_df = qry(f"SELECT transaction_date, SUM(total_price) as revenue, COUNT(*) as txn FROM transactions WHERE transaction_type='OUTPUT_SALE' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) GROUP BY transaction_date ORDER BY transaction_date", fetch=True)
-        # Category
-        cat_df = qry("SELECT p.category, SUM(t.total_price) as revenue FROM transactions t JOIN products p ON p.product_id=t.product_id WHERE t.transaction_type='OUTPUT_SALE' GROUP BY p.category ORDER BY revenue DESC", fetch=True)
+        tx_df = qry("SELECT * FROM transactions", fetch=True)
     else:
-        txns = pd.DataFrame(st.session_state.transactions)
-        sales_txns = txns[txns["transaction_type"]=="OUTPUT_SALE"] if not txns.empty else pd.DataFrame()
-        rev_df  = sales_txns.groupby("sale_vector").agg(txn=("transaction_id","count"), revenue=("total_price","sum")).reset_index() if not sales_txns.empty else pd.DataFrame()
-        top_df  = sales_txns.groupby("product_name").agg(sales_count=("transaction_id","count"), total_qty=("quantity","sum"), revenue=("total_price","sum")).reset_index().sort_values("revenue",ascending=False).head(10) if not sales_txns.empty else pd.DataFrame()
-        daily_df= pd.DataFrame()
-        cat_df  = pd.DataFrame()
-
-    c1,c2 = st.columns(2)
-
-    with c1:
-        st.markdown("#### Revenue by Sale Type")
-        if rev_df is not None and not rev_df.empty:
-            fig = px.pie(rev_df, names="sale_vector", values="revenue",
-                         color_discrete_sequence=["#C4882A","#E8A83A","#F5D080"],
-                         hole=0.4)
-            fig.update_layout(paper_bgcolor="white", plot_bgcolor="white", showlegend=True,
-                              font_family="Outfit", margin=dict(t=20,b=20,l=20,r=20))
-            st.plotly_chart(fig, use_container_width=True)
+        tx_df = pd.DataFrame(st.session_state.transactions)
+        
+    if tx_df.empty:
+        st.info("Insufficient volumetric tracking logs to populate graphical visualizations.")
+    else:
+        sales_only = tx_df[tx_df["transaction_type"] == "OUTPUT_SALE"]
+        
+        if not sales_only.empty:
+            c1, c2 = st.columns(2)
+            
+            with c1:
+                st.markdown("### Structural Volume by Thread Class")
+                prod_sales = sales_only.groupby("product_name")["total_price"].sum().reset_index()
+                st.bar_chart(data=prod_sales, x="product_name", y="total_price")
+                
+            with c2:
+                st.markdown("### Aggregated Revenue Time Series")
+                time_sales = sales_only.groupby("transaction_date")["total_price"].sum().reset_index()
+                st.line_chart(data=time_sales, x="transaction_date", y="total_price")
         else:
-            st.info("No sales data yet.")
-
-    with c2:
-        st.markdown("#### Top 10 Products by Revenue")
-        if top_df is not None and not top_df.empty:
-            fig2 = px.bar(top_df, x="revenue", y="product_name", orientation="h",
-                          color="revenue", color_continuous_scale=["#F5D080","#C4882A"],
-                          labels={"revenue":"Revenue","product_name":""})
-            fig2.update_layout(paper_bgcolor="white", plot_bgcolor="white",
-                               font_family="Outfit", margin=dict(t=10,b=10,l=10,r=10),
-                               coloraxis_showscale=False, yaxis={"autorange":"reversed"})
-            st.plotly_chart(fig2, use_container_width=True)
-        else:
-            st.info("No sales data yet.")
-
-    if daily_df is not None and not daily_df.empty:
-        st.markdown("#### Daily Revenue (Last 30 Days)")
-        fig3 = px.line(daily_df, x="transaction_date", y="revenue",
-                       markers=True, line_shape="spline",
-                       color_discrete_sequence=["#C4882A"])
-        fig3.update_layout(paper_bgcolor="white", plot_bgcolor="#FDFBF7",
-                           font_family="Outfit", margin=dict(t=10,b=10,l=10,r=10),
-                           xaxis_title="", yaxis_title="Revenue (৳)")
-        fig3.update_traces(line_width=2.5, marker_size=6)
-        st.plotly_chart(fig3, use_container_width=True)
-
-    if top_df is not None and not top_df.empty:
-        st.markdown("#### Full Product Performance Table")
-        st.dataframe(top_df, use_container_width=True, hide_index=True)
+            st.info("Log sales info to display comparative dashboards.")
 
 # ══════════════════════════════════════════════════════════════
 #  9. STORE SETTINGS
 # ══════════════════════════════════════════════════════════════
 elif page == "settings":
-    page_header("System", "Store Settings", "Edit your business name and preferences")
-
-    if db_ok:
-        raw = qry("SELECT setting_key, setting_value FROM store_settings", fetch=True)
-        cfg = dict(zip(raw["setting_key"], raw["setting_value"])) if raw is not None and not raw.empty else {}
-    else:
-        cfg = st.session_state.store_settings
-
+    page_header("Configuration", "Suite Controls & Identity", "Calibrate framework configurations and layout options")
+    
     with st.form("settings_form"):
-        st.markdown("#### Business Information")
-        c1,c2 = st.columns(2)
-        new_name   = c1.text_input("Store / Business Name",  value=cfg.get("store_name",""))
-        new_owner  = c2.text_input("Owner Name",              value=cfg.get("owner_name",""))
-        new_phone  = c1.text_input("Business Phone",          value=cfg.get("phone",""))
-        new_curr   = c2.text_input("Currency Symbol",         value=cfg.get("currency","৳"))
-        new_addr   = st.text_area("Business Address",         value=cfg.get("address",""))
-
-        st.markdown("#### Database Info")
-        if db_ok:
-            st.success("✅ Connected to TiDB Cloud MySQL")
-        else:
-            st.error("⚠ Not connected to database. Running in demo mode.")
-            st.markdown("""
-            **To connect:**
-            1. Create free TiDB Cloud account at **tidbcloud.com**
-            2. Create a free Serverless cluster
-            3. Run `schema.sql` in TiDB SQL editor
-            4. Go to Streamlit Cloud → App Settings → Secrets → paste your credentials
-            """)
-
-        if st.form_submit_button("💾 Save Settings"):
-            updates = {"store_name":new_name,"owner_name":new_owner,"phone":new_phone,"currency":new_curr,"address":new_addr}
-            for k,v in updates.items():
-                save_setting(k,v)
-            st.success("✓ Settings saved! Refresh to see updated store name.")
+        s_name = st.text_input("Business Application Brand Title", value=get_setting("store_name") or "ThreadTrack Pro")
+        s_owner = st.text_input("Proprietor Management Authority Identity Name", value=get_setting("owner_name"))
+        s_curr = st.selectbox("Operational ISO Financial Denomination Character Set", ["৳", "$", "€", "£", "₹"], index=0)
+        
+        if st.form_submit_button("⚡ Re-index Metadata Rules"):
+            save_setting("store_name", s_name)
+            save_setting("owner_name", s_owner)
+            save_setting("currency", s_curr)
+            st.success("✓ Platform settings successfully saved configuration changes.")
             st.rerun()
-
-    st.markdown("---")
-    st.markdown("#### About ThreadTrack Pro")
-    st.markdown("""
-    <div style='background:#ffffff;border:1.5px solid #E0D8CC;border-radius:10px;padding:20px;font-size:0.85rem;color:#444'>
-    <b>Version:</b> 2.0 &nbsp;|&nbsp; <b>Stack:</b> Python · Streamlit · TiDB Cloud (MySQL) · Plotly<br><br>
-    <b>Features:</b> Products · Suppliers · Seller Registration · Seller-Product Assignment ·
-    Customer Database · Smart Universal Search · Sales Recording · Stock Management ·
-    Revenue Reports · Store Name Customization
-    </div>""", unsafe_allow_html=True) 
