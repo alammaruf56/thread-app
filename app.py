@@ -320,9 +320,9 @@ else:
 PAGES = {
     "   Dashboard":        "dashboard",
     "🔍  Smart Search":     "search",
-    "    Products":         "products",
-    "    Suppliers":        "suppliers",
-    "    Sellers":          "sellers",
+    "   Products":         "products",
+    "   Suppliers":        "suppliers",
+    "   Sellers":          "sellers",
     "   Customers":        "customers",
     "  Sales & Stock":    "sales",
     "  Reports":          "reports",
