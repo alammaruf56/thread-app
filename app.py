@@ -2,51 +2,69 @@ import streamlit as st
 import mysql.connector
 import pandas as pd
 
-# Clean page configuration - no emojis in title strings
-st.set_page_config(page_title="Thread Inventory System", layout="wide")
+# Clean luxury page definition configuration
+st.set_page_config(page_title="ThreadTrack Pro", layout="wide")
 
-# Inject Custom Minimalist HTML and CSS Theme styling to override Streamlit colors
+# Custom Embedded Styling Matrix recreating the high-end dashboard appearance
 st.markdown("""
     <style>
-        /* Minimalist professional clean palette */
-        :root {
-            --primary-color: #000000;
-            --background-color: #FFFFFF;
-            --secondary-background-color: #F8F9FA;
-            --text-color: #212529;
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        
+        /* Apply Base Luxury Ivory Tone Framework */
+        html, body, [class*="css"], .stApp {
+            background-color: #f7f4ef !important;
+            color: #1a1510 !important;
+            font-family: 'Outfit', sans-serif !important;
         }
         
-        /* Remove default decorative headers/footers */
-        header {visibility: hidden;}
-        footer {visibility: hidden;}
+        /* Remove Default Structural Distractions */
+        header, footer { visibility: hidden !important; }
         
-        /* Typography overrides */
-        html, body, [class*="css"]  {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: #212529;
+        /* Typography Layout Customizations */
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif !important;
+            color: #1a1510 !important;
+            font-weight: 700 !important;
         }
         
-        /* Box and form container standardization */
-        .stForm {
-            border: 1px solid #DEE2E6 !important;
+        /* Component Cards Design System */
+        div[data-testid="stMetricContainer"], .stForm {
+            background-color: #ffffff !important;
+            border: 1.5px solid #e0d8cc !important;
+            border-radius: 12px !important;
             padding: 20px !important;
-            border-radius: 4px !important;
-            background-color: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
         }
         
-        /* Flat uniform buttons */
-        button {
-            background-color: #212529 !important;
-            color: #FFFFFF !important;
-            border-radius: 4px !important;
+        /* Custom Warm Accent Buttons */
+        button[kind="primary"], .stButton>button {
+            background-color: #c4882a !important;
+            color: #ffffff !important;
+            border-radius: 30px !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-weight: 600 !important;
             border: none !important;
+            padding: 0.5rem 1.5rem !important;
+            transition: all .15s ease !important;
+        }
+        
+        button[kind="primary"]:hover, .stButton>button:hover {
+            background-color: #e8a83a !important;
+            box-shadow: 0 4px 12px rgba(196,136,42,.3) !important;
+            transform: translateY(-1px) !important;
+        }
+        
+        /* Data Grid Table Polishing */
+        .dataframe {
+            border: 1px solid #e0d8cc !important;
+            border-radius: 8px !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Thread Business Inventory and Sales System")
+st.title("ThreadTrack Pro Business Manager")
 
-# Safe TiDB Database connection handler utilizing Streamlit secrets configuration
+# Safe Relational Database Bridge Connectivity Engine
 def get_connection():
     return mysql.connector.connect(
         host=st.secrets["mysql"]["host"],
@@ -63,174 +81,183 @@ def run_query(query, params=None, is_select=False):
     try:
         cursor.execute(query, params or ())
         if is_select:
-            result = cursor.fetchall()
-            return pd.DataFrame(result)
+            return pd.DataFrame(cursor.fetchall())
     except Exception as e:
-        st.error(f"Database System Error: {e}")
+        st.error(f"Database Connectivity Failure Core: {e}")
     finally:
         cursor.close()
         conn.close()
 
-# Sidebar Navigation Control - Clean text strings
-menu = ["Global Search Dashboard", "Suppliers Entry", "Product Catalog", "Customer Profiles", "Record Transaction Ledger"]
-choice = st.sidebar.selectbox("Navigation Modules", menu)
+# Navigation Selection Array Matrix
+menu = ["Dashboard Metrics", "Thread Products SKU Catalog", "Registered Supplier Base", "Client Ledger Profiles", "Process Log Ledger"]
+choice = st.sidebar.selectbox("Navigation Sections", menu)
 
 # ==========================================
-# MODULE 1: GLOBAL SEARCH & LOGISTICS
+# MODULE 1: PREMIUM SEARCH & METRICS DASHBOARD
 # ==========================================
-if choice == "Global Search Dashboard":
-    st.subheader("Global Search Engine")
+if choice == "Dashboard Metrics":
+    st.subheader("Business Metrics Analytics")
     
-    tab1, tab2, tab3 = st.tabs(["Search Inventory and Suppliers", "Trace Sales and Customer Contacts", "Low Stock Priorities"])
+    # Live Aggregates Computation Engine
+    p_count = run_query("SELECT COUNT(*) as total FROM products", is_select=True)
+    s_count = run_query("SELECT COUNT(*) as total FROM sources", is_select=True)
+    alerts = run_query("SELECT COUNT(*) as total FROM products WHERE current_stock <= low_stock_threshold", is_select=True)
+    rev_calc = run_query("SELECT SUM(total_price) as total FROM transactions WHERE transaction_type='OUTPUT_SALE'", is_select=True)
     
-    with tab1:
-        search_term = st.text_input("🔍 Enter product name, color specification, or supplier name:")
-        sql = """
-            SELECT p.product_name, p.color_code, p.unit_price, p.current_stock, 
-                   s.source_name AS supplier_name, s.phone AS supplier_phone 
-            FROM products p 
-            LEFT JOIN sources s ON p.source_id = s.source_id
-        """
-        if search_term:
-            sql += " WHERE p.product_name LIKE %s OR p.color_code LIKE %s OR s.source_name LIKE %s"
-            like_val = f"%{search_term}%"
-            df = run_query(sql, (like_val, like_val, like_val), is_select=True)
-        else:
-            df = run_query(sql, is_select=True)
-            
-        if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.write("No matching items found.")
-
-    with tab2:
-        st.subheader("Trace Sales Records")
-        buyer_search = st.text_input("🔍 Search past customer names or product descriptions to follow up:")
-        sql_sales = """
-            SELECT t.transaction_date, p.product_name, p.color_code, t.quantity, t.total_price,
-                   c.customer_name, c.phone AS customer_phone
-            FROM transactions t
-            JOIN products p ON t.product_id = p.product_id
-            LEFT JOIN customers c ON t.customer_id = c.customer_id
-            WHERE t.transaction_type = 'OUTPUT_SALE'
-        """
-        if buyer_search:
-            sql_sales += " AND (c.customer_name LIKE %s OR p.product_name LIKE %s)"
-            like_buyer = f"%{buyer_search}%"
-            sales_df = run_query(sql_sales, (like_buyer, like_buyer), is_select=True)
-        else:
-            sales_df = run_query(sql_sales, is_select=True)
-            
-        if sales_df is not None and not sales_df.empty:
-            st.dataframe(sales_df, use_container_width=True)
-        else:
-            st.write("No historical sales logs matched criteria.")
-
-    with tab3:
-        st.subheader("Restock Analysis")
-        low_stock_df = run_query("SELECT product_name, color_code, current_stock FROM products WHERE current_stock <= low_stock_threshold", is_select=True)
-        if low_stock_df is not None and not low_stock_df.empty:
-            st.write("Attention Required: The following items are low on stock.")
-            st.table(low_stock_df)
-        else:
-            st.write("All inventory metrics are operating within optimal capacities.")
-
-# ==========================================
-# MODULE 2: SUPPLIERS ENTRY
-# ==========================================
-elif choice == "Suppliers Entry":
-    st.subheader("Manage Thread Suppliers and Sources")
-    with st.form("add_source_form", clear_on_submit=True):
-        name = st.text_input("Supplier Business Name")
-        phone = st.text_input("Phone Number")
-        addr = st.text_area("Office Address")
-        if st.form_submit_button("Save Supplier Details") and name:
-            run_query("INSERT INTO sources (source_name, phone, address) VALUES (%s, %s, %s)", (name, phone, addr))
-            st.info("Supplier data successfully written to TiDB cluster.")
-            
-    st.subheader("Active Registered Suppliers")
-    active_sources = run_query("SELECT * FROM sources", is_select=True)
-    if active_sources is not None and not active_sources.empty:
-        st.dataframe(active_sources, use_container_width=True)
-
-# ==========================================
-# MODULE 3: PRODUCT CATALOG
-# ==========================================
-elif choice == "Product Catalog":
-    st.subheader("Thread SKU Catalog")
-    sources_df = run_query("SELECT source_id, source_name FROM sources", is_select=True)
-    if sources_df is not None and not sources_df.empty:
-        source_map = {row['source_name']: row['source_id'] for _, row in sources_df.iterrows()}
-        with st.form("add_product_form", clear_on_submit=True):
-            p_name = st.text_input("Thread Description or Name")
-            color = st.text_input("Color Specification Code")
-            selected_source = st.selectbox("Assign Supplier Source", list(source_map.keys()))
-            price = st.number_input("Unit Price", min_value=0.0, step=0.01)
-            init_stock = st.number_input("Initial Opening Stock Volume", min_value=0, step=1)
-            
-            if st.form_submit_button("Save Product to SKU Records") and p_name:
-                run_query("INSERT INTO products (product_name, color_code, source_id, unit_price, current_stock) VALUES (%s, %s, %s, %s, %s)",
-                          (p_name, color, source_map[selected_source], price, init_stock))
-                st.info("Product variant cataloged successfully.")
+    # Render Stat Cards mirroring prototype design layouts
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Products Cataloged", int(p_count['total'].iloc[0] if not p_count.empty else 0))
+    c2.metric("Active Suppliers", int(s_count['total'].iloc[0] if not s_count.empty else 0))
+    c3.metric("Low Stock Alerts", int(alerts['total'].iloc[0] if not alerts.empty else 0))
+    
+    rev_val = float(rev_calc['total'].iloc[0]) if not rev_calc.empty and rev_calc['total'].iloc[0] is not None else 0.0
+    c4.metric("Gross Sales Revenue", f"৳{rev_val:,.2f}")
+    
+    st.markdown("---")
+    st.subheader("Global Inventory Search Engine")
+    search_term = st.text_input("🔍 Filter matching parameters across categories, product descriptions or SKUs:")
+    
+    sql = """
+        SELECT p.product_name, p.sku_code, p.category, p.current_stock, p.sell_retail, p.sell_wholesale,
+               s.source_name as supplier_assigned
+        FROM products p
+        LEFT JOIN sources s ON p.source_id = s.source_id
+    """
+    if search_term:
+        sql += " WHERE p.product_name LIKE %s OR p.sku_code LIKE %s OR p.category LIKE %s"
+        l_term = f"%{search_term}%"
+        df = run_query(sql, (l_term, l_term, l_term), is_select=True)
     else:
-        st.error("Error: Register a Supplier entry profile first before allocating physical variants.")
+        df = run_query(sql, is_select=True)
+        
+    if df is not None and not df.empty:
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.write("No catalog lines matching selection criteria found.")
 
 # ==========================================
-# MODULE 4: CUSTOMER PROFILES
+# MODULE 2: THREAD SKU CATALOG MANAGER
 # ==========================================
-elif choice == "Customer Profiles":
-    st.subheader("Customer Profiles Database")
-    with st.form("add_cust_form", clear_on_submit=True):
-        c_name = st.text_input("Customer Name")
-        c_phone = st.text_input("Contact Number")
-        c_notes = st.text_area("Business Preference Notes (e.g. tracking specific buyer demands)")
-        if st.form_submit_button("Save Profile") and c_name:
-            run_query("INSERT INTO customers (customer_name, phone, contact_notes) VALUES (%s, %s, %s)", (c_name, c_phone, c_notes))
-            st.info("Buyer ledger record saved safely.")
-            
-    st.subheader("Registered Client Portfolio")
-    all_custs = run_query("SELECT * FROM customers", is_select=True)
-    if all_custs is not None and not all_custs.empty:
-        st.dataframe(all_custs, use_container_width=True)
-
-# ==========================================
-# MODULE 5: TRANSACTION LOGISTICS LEDGER
-# ==========================================
-elif choice == "Record Transaction Ledger":
-    st.subheader("Post Transaction Entry (Inbound or Outbound)")
-    products_df = run_query("SELECT product_id, product_name, current_stock, unit_price FROM products", is_select=True)
-    customers_df = run_query("SELECT customer_id, customer_name FROM customers", is_select=True)
+elif choice == "Thread Products SKU Catalog":
+    st.subheader("Thread Variants SKU Management")
     
-    if products_df is not None and not products_df.empty:
-        prod_map = {f"{r['product_name']} (Available: {r['current_stock']})": r for _, r in products_df.iterrows()}
-        cust_map = {"[No Customer Linked / Inventory Inbound Restock]": None}
-        if customers_df is not None and not customers_df.empty:
-            for _, r in customers_df.iterrows():
-                cust_map[r['customer_name']] = r['customer_id']
-                
-        with st.form("ledger_form", clear_on_submit=True):
-            chosen_prod_str = st.selectbox("Select Target Product Line", list(prod_map.keys()))
-            txn_type = st.selectbox("Transaction Vector Direction", ["OUTPUT_SALE", "INPUT_RESTOCK"])
-            qty = st.number_input("Quantity Volume", min_value=1, step=1)
-            chosen_cust_str = st.selectbox("Assign Customer Entity (Traceable for Sales)", list(cust_map.keys()))
+    sups_df = run_query("SELECT source_id, source_name FROM sources", is_select=True)
+    if sups_df is not None and not sups_df.empty:
+        sup_dict = {row['source_name']: row['source_id'] for _, row in sups_df.iterrows()}
+        
+        with st.form("new_product_skuline", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            p_name = col1.text_input("Product Identifier Line Name")
+            p_sku = col2.text_input("Unique SKU Code")
+            p_cat = col1.selectbox("Material Category Group", ["Cotton", "Silk", "Polyester", "Wool", "Nylon", "Mixed", "Other"])
+            p_sup = col2.selectbox("Allocated Source Supplier Partner", list(sup_dict.keys()))
             
-            if st.form_submit_button("Commit Ledger Records"):
-                target_prod = prod_map[chosen_prod_str]
-                pid = target_prod['product_id']
-                current_vol = target_prod['current_stock']
+            col3, col4, col5 = st.columns(3)
+            b_cost = col3.number_input("Purchase Buying Cost (৳)", min_value=0.0, step=1.0)
+            s_retail = col4.number_input("Retail Selling Unit Price (৳)", min_value=0.0, step=1.0)
+            s_wholesale = col5.number_input("Wholesale Selling Unit Price (৳)", min_value=0.0, step=1.0)
+            
+            init_stk = st.number_input("Initial Starting Physical Stock Volume", min_value=0, step=1)
+            
+            if st.form_submit_button("Commit Product Configuration") and p_name:
+                run_query("""INSERT INTO products 
+                             (product_name, sku_code, category, source_id, buy_price, sell_retail, sell_wholesale, current_stock) 
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                          (p_name, p_sku, p_cat, sup_dict[p_sup], b_cost, s_retail, s_wholesale, init_stk))
+                st.success("New product asset line successfully structured.")
+    else:
+        st.warning("Ensure at least one operational supplier is initialized before registering inventory assets.")
+
+    st.subheader("Active Stock Registry")
+    all_p = run_query("SELECT sku_code, product_name, category, buy_price, sell_retail, current_stock FROM products", is_select=True)
+    if all_p is not None and not all_p.empty:
+        st.dataframe(all_p, use_container_width=True)
+
+# ==========================================
+# MODULE 3: REGISTERED SUPPLIER BASE
+# ==========================================
+elif choice == "Registered Supplier Base":
+    st.subheader("Manage Global Production Vendors")
+    with st.form("new_vendor_entry", clear_on_submit=True):
+        v_name = st.text_input("Supplier Corporate Identity Name")
+        v_phone = st.text_input("Primary Contact Phone Interface")
+        v_spec = st.text_input("Production Speciality Line (e.g., Organic Cotton, Dyed Silk)")
+        v_addr = st.text_area("Corporate Headquaters Mailing Address")
+        
+        if st.form_submit_button("Record Supplier Registry") and v_name:
+            run_query("INSERT INTO sources (source_name, phone, address, speciality) VALUES (%s, %s, %s, %s)", 
+                      (v_name, v_phone, v_addr, v_spec))
+            st.success("Supplier tracking index saved.")
+            
+    st.subheader("Affiliated Active Vendor Network")
+    active_s = run_query("SELECT source_name, phone, speciality, address FROM sources", is_select=True)
+    if active_s is not None and not active_s.empty:
+        st.dataframe(active_s, use_container_width=True)
+
+# ==========================================
+# MODULE 4: CLIENT LEDGER PROFILES
+# ==========================================
+elif choice == "Client Ledger Profiles":
+    st.subheader("Client Portfolios Matrix")
+    with st.form("new_buyer_form", clear_on_submit=True):
+        c_name = st.text_input("Client Entity Business Name")
+        c_phone = st.text_input("Operational Phone Matrix Contact")
+        c_notes = st.text_area("Specific Purchasing Standard Requirements Notes")
+        
+        if st.form_submit_button("Archive Profile Matrix") and c_name:
+            run_query("INSERT INTO customers (customer_name, phone, contact_notes) VALUES (%s, %s, %s)", 
+                      (c_name, c_phone, c_notes))
+            st.success("Customer metadata structural mapping complete.")
+            
+    st.subheader("Active Customer Portfolio List")
+    custs = run_query("SELECT customer_name, phone, contact_notes FROM customers", is_select=True)
+    if custs is not None and not custs.empty:
+        st.dataframe(custs, use_container_width=True)
+
+# ==========================================
+# MODULE 5: INBOUND / OUTBOUND PROCESS LOG LEDGER
+# ==========================================
+elif choice == "Process Log Ledger":
+    st.subheader("Execute Stock Transaction Movements")
+    
+    prods = run_query("SELECT product_id, product_name, current_stock, sell_retail, sell_wholesale FROM products", is_select=True)
+    clis = run_query("SELECT customer_id, customer_name FROM customers", is_select=True)
+    
+    if prods is not None and not prods.empty:
+        prod_map = {f"{r['product_name']} (In Stock: {r['current_stock']})": r for _, r in prods.iterrows()}
+        cli_map = {"[No Customer Associated - Inbound Restock System]": None}
+        if clis is not None and not clis.empty:
+            for _, r in clis.iterrows():
+                cli_map[r['customer_name']] = r['customer_id']
                 
-                if txn_type == "OUTPUT_SALE" and qty > current_vol:
-                    st.error("Error: Insufficient stock volumes available to complete transaction execution.")
+        with st.form("transaction_processing_ledger", clear_on_submit=True):
+            p_selected = st.selectbox("Target Catalog Product Variant", list(prod_map.keys()))
+            t_vector = st.selectbox("Operation Matrix Flow Vector", ["OUTPUT_SALE", "INPUT_RESTOCK"])
+            s_mode = st.selectbox("Pricing Target Mode Tier (Sales Only)", ["RETAIL", "WHOLESALE"])
+            t_qty = st.number_input("Transactional Quantity Volume Metric", min_value=1, step=1)
+            t_disc = st.number_input("Applied Transaction Discount (৳)", min_value=0.0, step=5.0)
+            c_linked = st.selectbox("Linked Client Account Entity", list(cli_map.keys()))
+            
+            if st.form_submit_button("Commit Operational Entry Ledger"):
+                row_match = prod_map[p_selected]
+                pid = row_match['product_id']
+                stk_current = row_match['current_stock']
+                
+                if t_vector == "OUTPUT_SALE" and t_qty > stk_current:
+                    st.error("Operation Aborted: Requested checkout inventory metrics exceed active physical allocations.")
                 else:
-                    new_vol = current_vol - qty if txn_type == "OUTPUT_SALE" else current_vol + qty
-                    calculated_aggregate_cost = float(target_prod['unit_price']) * qty
-                    cid = cust_map[chosen_cust_str]
+                    # Resolve Price Target Tier Logic Matrix
+                    base_unit_rate = float(row_match['sell_retail'] if s_mode == "RETAIL" else row_match['sell_wholesale'])
+                    aggregate_cost = (base_unit_rate * t_qty) - float(t_disc)
+                    if aggregate_cost < 0: aggregate_cost = 0.0
                     
-                    # Log core transactional matrix
-                    run_query("INSERT INTO transactions (product_id, transaction_type, quantity, total_price, customer_id) VALUES (%s, %s, %s, %s, %s)",
-                              (pid, txn_type, qty, calculated_aggregate_cost, cid))
-                    # Synchronize base parameters
-                    run_query("UPDATE products SET current_stock = %s WHERE product_id = %s", (new_vol, pid))
-                    st.info(f"Transaction logged successfully. Financial processing metric: ${calculated_aggregate_cost:,.2f}")
+                    stk_updated = stk_current - t_qty if t_vector == "OUTPUT_SALE" else stk_current + t_qty
+                    cid = cli_map[c_linked]
+                    
+                    # Update parameters inside database engine
+                    run_query("INSERT INTO transactions (product_id, transaction_type, sale_vector, quantity, discount, total_price, customer_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                              (pid, t_vector, s_mode, t_qty, t_disc, aggregate_cost, cid))
+                    run_query("UPDATE products SET current_stock = %s WHERE product_id = %s", (stk_updated, pid))
+                    st.success(f"Log processing complete. Total calculated transaction rate: ৳{aggregate_cost:,.2f}")
     else:
-        st.error("Error: Register an item row inside the Product Catalog before initializing system entries.")
+        st.error("Process Blocked: Populate items inside the Product SKU Catalog before opening transaction logs.")
