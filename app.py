@@ -64,7 +64,11 @@ st.markdown("""
 
 st.title("ThreadTrack Pro Business Manager")
 
-# Safe Relational Database Bridge Connectivity Engine
+# ==========================================
+# SUPER-SPEED DATABASE CONNECTION MANAGER
+# ==========================================
+# This @st.cache_resource tag keeps the connection open permanently!
+@st.cache_resource
 def get_connection():
     return mysql.connector.connect(
         host=st.secrets["mysql"]["host"],
@@ -77,6 +81,13 @@ def get_connection():
 
 def run_query(query, params=None, is_select=False):
     conn = get_connection()
+    
+    # Auto-reconnect if the database went to sleep
+    try:
+        conn.ping(reconnect=True, attempts=3, delay=1)
+    except Exception as e:
+        st.error(f"Connection lost and could not be restored: {e}")
+        
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(query, params or ())
@@ -86,7 +97,7 @@ def run_query(query, params=None, is_select=False):
         st.error(f"Database Connectivity Failure Core: {e}")
     finally:
         cursor.close()
-        conn.close()
+        # WE NO LONGER CLOSE THE CONNECTION HERE! It stays alive for speed.
 
 # Navigation Selection Array Matrix
 menu = ["Dashboard Metrics", "Thread Products SKU Catalog", "Registered Supplier Base", "Client Ledger Profiles", "Process Log Ledger"]
@@ -98,7 +109,7 @@ choice = st.sidebar.selectbox("Navigation Sections", menu)
 if choice == "Dashboard Metrics":
     st.subheader("Business Metrics Analytics")
     
-    # Live Aggregates Computation Engine
+    # Live Aggregates Computation Engine (Now executes instantly)
     p_count = run_query("SELECT COUNT(*) as total FROM products", is_select=True)
     s_count = run_query("SELECT COUNT(*) as total FROM sources", is_select=True)
     alerts = run_query("SELECT COUNT(*) as total FROM products WHERE current_stock <= low_stock_threshold", is_select=True)
