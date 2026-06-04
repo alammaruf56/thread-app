@@ -67,37 +67,45 @@ st.title("ThreadTrack Pro Business Manager")
 # ==========================================
 # SUPER-SPEED DATABASE CONNECTION MANAGER
 # ==========================================
-# This @st.cache_resource tag keeps the connection open permanently!
 @st.cache_resource
 def get_connection():
-    return mysql.connector.connect(
-        host=st.secrets["mysql"]["host"],
-        port=int(st.secrets["mysql"]["port"]),
-        user=st.secrets["mysql"]["user"],
-        password=st.secrets["mysql"]["password"],
-        database="thread_business",
-        autocommit=True
-    )
+    try:
+        return mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            port=int(st.secrets["mysql"]["port"]),
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database="thread_business",
+            autocommit=True
+        )
+    except Exception as e:
+        st.error(f"Database setup connection link failure: {e}")
+        return None
 
 def run_query(query, params=None, is_select=False):
-    conn = get_connection()
-    
-    # Auto-reconnect if the database went to sleep
     try:
-        conn.ping(reconnect=True, attempts=3, delay=1)
-    except Exception as e:
-        st.error(f"Connection lost and could not be restored: {e}")
+        conn = get_connection()
+        if conn is None:
+            return pd.DataFrame()
         
-    cursor = conn.cursor(dictionary=True)
-    try:
+        try:
+            conn.ping(reconnect=True, attempts=3, delay=2)
+        except:
+            pass
+            
+        cursor = conn.cursor(dictionary=True)
         cursor.execute(query, params or ())
+        
         if is_select:
-            return pd.DataFrame(cursor.fetchall())
-    except Exception as e:
-        st.error(f"Database Connectivity Failure Core: {e}")
-    finally:
+            res = cursor.fetchall()
+            cursor.close()
+            return pd.DataFrame(res)
+            
         cursor.close()
-        # WE NO LONGER CLOSE THE CONNECTION HERE! It stays alive for speed.
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"System Pipeline Database Alert: {e}")
+        return pd.DataFrame()
 
 # Navigation Selection Array Matrix
 menu = ["Dashboard Metrics", "Thread Products SKU Catalog", "Registered Supplier Base", "Client Ledger Profiles", "Process Log Ledger"]
@@ -109,20 +117,22 @@ choice = st.sidebar.selectbox("Navigation Sections", menu)
 if choice == "Dashboard Metrics":
     st.subheader("Business Metrics Analytics")
     
-    # Live Aggregates Computation Engine (Now executes instantly)
     p_count = run_query("SELECT COUNT(*) as total FROM products", is_select=True)
     s_count = run_query("SELECT COUNT(*) as total FROM sources", is_select=True)
     alerts = run_query("SELECT COUNT(*) as total FROM products WHERE current_stock <= low_stock_threshold", is_select=True)
     rev_calc = run_query("SELECT SUM(total_price) as total FROM transactions WHERE transaction_type='OUTPUT_SALE'", is_select=True)
     
+    val_p = int(p_count['total'].iloc[0]) if (p_count is not None and not p_count.empty and 'total' in p_count.columns) else 0
+    val_s = int(s_count['total'].iloc[0]) if (s_count is not None and not s_count.empty and 'total' in s_count.columns) else 0
+    val_a = int(alerts['total'].iloc[0]) if (alerts is not None and not alerts.empty and 'total' in alerts.columns) else 0
+    val_r = float(rev_calc['total'].iloc[0]) if (rev_calc is not None and not rev_calc.empty and 'total' in rev_calc.columns and rev_calc['total'].iloc[0] is not None) else 0.0
+    
     # Render Stat Cards mirroring prototype design layouts
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Products Cataloged", int(p_count['total'].iloc[0] if not p_count.empty else 0))
-    c2.metric("Active Suppliers", int(s_count['total'].iloc[0] if not s_count.empty else 0))
-    c3.metric("Low Stock Alerts", int(alerts['total'].iloc[0] if not alerts.empty else 0))
-    
-    rev_val = float(rev_calc['total'].iloc[0]) if not rev_calc.empty and rev_calc['total'].iloc[0] is not None else 0.0
-    c4.metric("Gross Sales Revenue", f"৳{rev_val:,.2f}")
+    c1.metric("Total Products Cataloged", val_p)
+    c2.metric("Active Suppliers", val_s)
+    c3.metric("Low Stock Alerts", val_a)
+    c4.metric("Gross Sales Revenue", f"৳{val_r:,.2f}")
     
     st.markdown("---")
     st.subheader("Global Inventory Search Engine")
@@ -257,7 +267,6 @@ elif choice == "Process Log Ledger":
                 if t_vector == "OUTPUT_SALE" and t_qty > stk_current:
                     st.error("Operation Aborted: Requested checkout inventory metrics exceed active physical allocations.")
                 else:
-                    # Resolve Price Target Tier Logic Matrix
                     base_unit_rate = float(row_match['sell_retail'] if s_mode == "RETAIL" else row_match['sell_wholesale'])
                     aggregate_cost = (base_unit_rate * t_qty) - float(t_disc)
                     if aggregate_cost < 0: aggregate_cost = 0.0
@@ -265,7 +274,6 @@ elif choice == "Process Log Ledger":
                     stk_updated = stk_current - t_qty if t_vector == "OUTPUT_SALE" else stk_current + t_qty
                     cid = cli_map[c_linked]
                     
-                    # Update parameters inside database engine
                     run_query("INSERT INTO transactions (product_id, transaction_type, sale_vector, quantity, discount, total_price, customer_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                               (pid, t_vector, s_mode, t_qty, t_disc, aggregate_cost, cid))
                     run_query("UPDATE products SET current_stock = %s WHERE product_id = %s", (stk_updated, pid))
