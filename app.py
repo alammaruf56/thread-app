@@ -3,14 +3,14 @@ import mysql.connector
 import pandas as pd
 import datetime
 
-# ১. পেজ কনফিগারেশন (সাইডবার যাতে ম্যানুয়ালি ওপেন/ক্লোজ করা যায়)
+# ১. পেজ কনফিগারেশন
 st.set_page_config(
     page_title="ThreadTrack Pro — Business Suite", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
 
-# ২. লাক্সারি ব্র্যান্ড স্টোর থিম সিএসএস (আইভরি, ডিপ অবসিডিয়ান ব্ল্যাক এবং ব্রাশড গোল্ড)
+# ২. আল্ট্রা-প্রফেশনাল লাক্সারি থিম সিএসএস (লেবেল কালার ফিক্সড)
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
@@ -22,10 +22,26 @@ st.markdown("""
             font-family: 'Outfit', sans-serif !important;
         }
         
-        /* স্ট্রিমলিটের ফদুটোর হাইড করা কিন্তু হেডার ও সাইডবার বাটন ঠিক রাখা */
+        /* ফুটার হাইড */
         footer { visibility: hidden !important; }
         
-        /* সাইডবার ডিজাইন - প্রিমিয়াম ডার্ক থিম */
+        /* 🚨 ইনপুট ফিল্ডের ওপরের টাইটেল/লেবেল ফিক্স (যাতে পরিষ্কার দেখা যায়) */
+        label, div[data-testid="stWidgetLabel"] p {
+            color: #111111 !important;
+            font-size: 0.9rem !important;
+            font-weight: 500 !important;
+            margin-bottom: 5px !important;
+        }
+        
+        /* ইনপুট বক্সের ভেতরের টেক্সট এবং বর্ডার */
+        .stTextInput>div>div>input, .stSelectbox>div>div>div, .stNumberInput>div>div>input {
+            background-color: #ffffff !important;
+            color: #111111 !important;
+            border: 1px solid #EAE4DA !important;
+            border-radius: 4px !important;
+        }
+        
+        /* সাইডবার ডিজাইন - ডার্ক লাক্সারি */
         section[data-testid="stSidebar"] {
             background-color: #111111 !important;
             border-right: 1px solid #222222 !important;
@@ -33,7 +49,8 @@ st.markdown("""
         section[data-testid="stSidebar"] * {
             color: #FDFBF7 !important;
         }
-        section[data-testid="stSidebar"] .stSelectbox label {
+        /* সাইডবারের ভেতরের লেবেল গোল্ডেন রাখা */
+        section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p {
             color: #C5A059 !important;
             font-size: 0.8rem !important;
             text-transform: uppercase !important;
@@ -51,7 +68,7 @@ st.markdown("""
         div[data-testid="stMetricContainer"] {
             background-color: #ffffff !important;
             border: 1px solid #EAE4DA !important;
-            border-radius: 0px !important; /* শার্প কর্পোরেট লুক */
+            border-radius: 4px !important;
             padding: 24px !important;
             box-shadow: 0 5px 25px rgba(17,17,17,0.02) !important;
         }
@@ -67,19 +84,20 @@ st.markdown("""
             color: #111111 !important;
         }
         
-        /* ফর্ম এবং ইনপুট ফিল্ড পোলিশিং */
+        /* ফর্ম এবং ইনপুট ফিল্ড কন্টেইনার */
         .stForm {
             background-color: #ffffff !important;
             border: 1px solid #EAE4DA !important;
-            border-radius: 0px !important;
+            border-radius: 4px !important;
             padding: 35px !important;
+            box-shadow: 0 10px 30px rgba(17,17,17,0.01) !important;
         }
         
         /* লাক্সারি সিগনেচার বাটন */
         button[kind="primary"], .stButton>button {
             background-color: #111111 !important;
             color: #FDFBF7 !important;
-            border-radius: 0px !important;
+            border-radius: 4px !important;
             font-family: 'Outfit', sans-serif !important;
             font-weight: 500 !important;
             text-transform: uppercase !important;
@@ -105,7 +123,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# প্রফেশনাল রেডিমেড ডেমো ডাটা (ডাটাবেজ ডাউন থাকলেও যাতে ক্লায়েন্ট সুন্দর দেখে)
+# প্রফেশনাল ডেমো ডাটা (সেফটি ব্যাকআপ)
 # ==========================================
 if "sources" not in st.session_state:
     st.session_state.sources = [
@@ -129,7 +147,7 @@ if "transactions" not in st.session_state:
     ]
 
 # ==========================================
-# ডাটাবেজ ব্যাকএন্ড রাউটার (অটোমেটিক অ্যান্ড সেইফ)
+# ডাটাবেজ ব্যাকএন্ড রাউটার
 # ==========================================
 @st.cache_resource(ttl=20)
 def get_db_link():
@@ -168,7 +186,7 @@ def run_brand_query(query, params=None, is_select=False):
         return pd.DataFrame()
 
 # ==========================================
-# ব্র্যান্ড সাইডবার নেভিগেশন (ব্র্যান্ড স্টোর লুক)
+# সাইডবার নেভিগেশন
 # ==========================================
 st.sidebar.markdown(
     "<h2 style='color:#FDFBF7; font-family:\"Playfair Display\"; letter-spacing:1px; margin-bottom:5px;'>THREADTRACK</h2>"
@@ -278,7 +296,7 @@ elif choice == "Product Catalog Matrix":
     st.dataframe(l_df, use_container_width=True)
 
 # ==========================================
-# 나머지 মডিউল ৩, ৪, ৫ (সেফ অ্যান্ড হাই-এন্ড রেপ্লিকেশন)
+# মডিউল ৩: সাপ্লায়ার ডেটাবেজ
 # ==========================================
 elif choice == "Supplier Database":
     st.markdown("<h1 style='margin-top:0;'>Corporate Supplier Matrix</h1>", unsafe_allow_html=True)
@@ -303,6 +321,9 @@ elif choice == "Supplier Database":
         s_df = pd.DataFrame(st.session_state.sources)[["source_name", "phone", "speciality", "address"]]
     st.dataframe(s_df, use_container_width=True)
 
+# ==========================================
+# মডিউল ৪: ক্লায়েন্ট লেজার
+# ==========================================
 elif choice == "Client Ledger Profiles":
     st.markdown("<h1 style='margin-top:0;'>Client Account Ledgers</h1>", unsafe_allow_html=True)
     with st.form("c_form", clear_on_submit=True):
@@ -325,6 +346,9 @@ elif choice == "Client Ledger Profiles":
         c_df = pd.DataFrame(st.session_state.customers)[["customer_name", "phone", "contact_notes"]]
     st.dataframe(c_df, use_container_width=True)
 
+# ==========================================
+# মডিউল ৫: ইনভেন্টরি লগস
+# ==========================================
 elif choice == "Inventory Ledger Logs":
     st.markdown("<h1 style='margin-top:0;'>Execute Value Asset Movements</h1>", unsafe_allow_html=True)
     
