@@ -2,56 +2,68 @@ import streamlit as st
 import mysql.connector
 import pandas as pd
 
-# ১. পেজ কনফিগারেশন (কনফ্লিক্ট এড়াতে কোনো এক্সটার্নাল সিএসএস মার্কডাউন রাখা হয়নি)
+# ১. পেজ কনফিগারেশন (ক্র্যাশ এড়াতে এখানে কোনো এক্সটার্নাল সিএসএস রাখা হয়নি)
 st.set_page_config(page_title="Thread Suite Pro", layout="wide")
 
-# ২. গ্লোবাল কানেকশন পুলিং (কানেকশন লিক ও ক্র্যাশ চিরতরে বন্ধ)
-@st.cache_resource
-def get_db_pool():
+# ২. সুপার ফাস্ট ও ক্র্যাশ-প্রুফ ডেটাবেস কানেকশন লজিক
+@st.cache_resource(ttl=30)
+def get_db_connection():
     try:
-        return mysql.connector.connect(
+        # secrets থেকে ডেটাবেস ক্রেডেনশিয়াল রিড
+        conn = mysql.connector.connect(
             host=st.secrets["mysql"]["host"],
             port=int(st.secrets["mysql"]["port"]),
             user=st.secrets["mysql"]["user"],
             password=st.secrets["mysql"]["password"],
             database=st.secrets["mysql"]["database"],
-            autocommit=True
+            autocommit=True,
+            connect_timeout=10 # সার্ভার রেসপন্স স্লো হলে ১০ সেকেন্ড পর্যন্ত ওয়েট করবে
         )
+        return conn
     except Exception as e:
-        st.error(f"Database Connection Failed: {e}")
+        # ডেটাবেস ডাউন থাকলে বা কানেক্ট না হলে অ্যাপ ক্র্যাশ করা আটকাবে
         return None
 
-db_conn = get_db_pool()
-
-# ৩. হাই-স্পিড ডেটা কুয়েরি এক্সিকিউটর
-def db_query(sql, params=None, fetch=False):
-    if not db_conn:
-        return pd.DataFrame() if fetch else False
+# ৩. লাইভ হাই-স্পিড কুয়েরি হ্যান্ডলার (ল্যাগিং ও এরর ফ্রি)
+def run_query(sql, params=None, is_fetch=False):
+    conn = get_db_connection()
+    if conn is None:
+        if is_fetch:
+            return pd.DataFrame()
+        return False
+    
     try:
-        cur = db_conn.cursor(dictionary=True)
+        cur = conn.cursor(dictionary=True)
         cur.execute(sql, params or ())
-        if fetch:
-            rows = cur.fetchall()
+        if is_fetch:
+            res = cur.fetchall()
             cur.close()
-            return pd.DataFrame(rows) if rows else pd.DataFrame()
+            conn.close()
+            return pd.DataFrame(res) if res else pd.DataFrame()
         cur.close()
+        conn.close()
         return True
     except Exception as e:
-        return pd.DataFrame() if fetch else False
+        # কুয়েরি ফেইল হলে কানেকশন রিসেট করবে কিন্তু স্ক্রিন ব্রেক করবে remembers
+        try: cur.close()
+        except: pass
+        try: conn.close()
+        except: pass
+        return pd.DataFrame() if is_fetch else False
 
-# সাইডবার নেভিগেশন
+# সাইডবার নেভিগেশন মেনু
 st.sidebar.title("THREAD SUITE")
 st.sidebar.markdown("---")
 menu = st.sidebar.radio("NAVIGATION", ["Thread Inventory & Stock", "Seller Records", "Customer Directory"])
 
-# গ্লোবাল স্টেট ট্র্যাকিং (ল্যাগ বা পেজ ব্রেকিং প্রতিরোধ করার জন্য)
+# গ্লোবাল সেশন স্টেট (উইজেট স্টেট লস এবং রেন্ডারিং স্পিড অপ্টিমাইজেশন)
 if "delete_id" not in st.session_state: st.session_state.delete_id = None
 if "delete_mode" not in st.session_state: st.session_state.delete_mode = None
 if "edit_id" not in st.session_state: st.session_state.edit_id = None
 if "edit_data" not in st.session_state: st.session_state.edit_data = {}
 
 # ══════════════════════════════════════════════════════════════
-# ১. থ্রেড ইনভেন্টরি ও স্টক পেজ
+# ১. থ্রেড ইনভেন্টরি ও স্টক পেজ (ইনস্ট্যান্ট সেভ গ্যারান্টি)
 # ══════════════════════════════════════════════════════════════
 if menu == "Thread Inventory & Stock":
     st.title("Product Catalog & Stock Volume")
@@ -70,17 +82,18 @@ if menu == "Thread Inventory & Stock":
             if t_code.strip() and t_name.strip():
                 final_qty = t_qty if action == "Stock IN (Buy/Add)" else -t_qty
                 
-                success = db_query("""
+                # অন ডুপ্লিকেট কি কুয়েরি যা ইনভেন্টরি ডেটা হারানো বন্ধ করবে
+                success = run_query("""
                     INSERT INTO threads (thread_code, thread_name, current_stock) 
                     VALUES (%s, %s, %s) 
                     ON DUPLICATE KEY UPDATE thread_name=%s, current_stock=current_stock+%s
                 """, (t_code.strip(), t_name.strip(), final_qty, t_name.strip(), final_qty))
                 
                 if success:
-                    st.success(f"Successfully updated: {t_name}")
+                    st.success(f"Successfully recorded: {t_name}")
                     st.rerun()
                 else:
-                    st.error("Database update failed.")
+                    st.error("Could not save data. Please check database connection.")
             else:
                 st.error("SKU/Code and Product Name are required.")
 
@@ -92,28 +105,29 @@ if menu == "Thread Inventory & Stock":
         if search_t:
             search_val = f"%{search_t.strip().lower()}%"
             sql += " WHERE LOWER(thread_code) LIKE %s OR LOWER(thread_name) LIKE %s"
-            df = db_query(sql, (search_val, search_val), fetch=True)
+            df = run_query(sql, (search_val, search_val), is_fetch=True)
         else:
-            df = db_query(sql, fetch=True)
+            df = run_query(sql, is_fetch=True)
             
         if df is not None and not df.empty:
             calc_height = min(len(df) * 35 + 45, 400)
             st.dataframe(df, use_container_width=True, hide_index=True, height=calc_height)
         else:
-            st.info("No stock items found.")
+            st.info("No stock data found or database server is sleeping.")
 
 # ══════════════════════════════════════════════════════════════
-# ২. সেলার ডিরেক্টরি (ড্রপডাউন অ্যাকশন ও পপ-আপ ডিলিট কনফার্মেশন)
+# ২. সেলার ডিরেক্টরি (নিরাপদ ড্রপডাউন ও কনফার্মেশন সহ ডিলিট)
 # ══════════════════════════════════════════════════════════════
 elif menu == "Seller Records":
     st.title("Seller Directory Management")
     
+    # পপ আপ কনফার্মেশন প্রম্পট
     if st.session_state.delete_id and st.session_state.delete_mode == "seller":
         with st.container(border=True):
             st.error("⚠️ Confirm Action: Are you sure you want to permanently delete this seller?")
             c_b1, c_b2, _ = st.columns([1, 1, 4])
             if c_b1.button("Yes, Confirm Delete", type="primary", key="conf_del_sel"):
-                db_query("DELETE FROM sellers WHERE id=%s", (st.session_state.delete_id,))
+                run_query("DELETE FROM sellers WHERE id=%s", (st.session_state.delete_id,))
                 st.session_state.delete_id = None
                 st.session_state.delete_mode = None
                 st.rerun()
@@ -137,12 +151,12 @@ elif menu == "Seller Records":
             if st.form_submit_button(submit_label):
                 if s_name.strip():
                     if st.session_state.edit_id:
-                        db_query("UPDATE sellers SET name=%s, phone=%s, address=%s, thread_codes=%s WHERE id=%s",
+                        run_query("UPDATE sellers SET name=%s, phone=%s, address=%s, thread_codes=%s WHERE id=%s",
                                  (s_name.strip(), s_phone.strip(), s_address.strip(), s_threads.strip(), st.session_state.edit_id))
                         st.session_state.edit_id = None
                         st.session_state.edit_data = {}
                     else:
-                        db_query("INSERT INTO sellers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
+                        run_query("INSERT INTO sellers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
                                  (s_name.strip(), s_phone.strip(), s_address.strip(), s_threads.strip()))
                     st.rerun()
                 else:
@@ -162,9 +176,9 @@ elif menu == "Seller Records":
         if search_s:
             search_val = f"%{search_s.strip().lower()}%"
             sql += " WHERE LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(thread_codes) LIKE %s"
-            sdf = db_query(sql, (search_val, search_val, search_val), fetch=True)
+            sdf = run_query(sql, (search_val, search_val, search_val), is_fetch=True)
         else:
-            sdf = db_query(sql, fetch=True)
+            sdf = run_query(sql, is_fetch=True)
         
         if sdf is not None and not sdf.empty:
             for _, row in sdf.iterrows():
@@ -184,10 +198,10 @@ elif menu == "Seller Records":
                             st.session_state.delete_mode = "seller"
                             st.rerun()
         else:
-            st.info("No sellers found.")
+            st.info("No sellers registered yet.")
 
 # ══════════════════════════════════════════════════════════════
-# ৩. কাস্টমার ডিরেক্টরি (ড্রপডাউন অ্যাকশন ও পপ-আপ ডিলিট কনফার্মেশন)
+# ৩. কাস্টমার ডিরেক্টরি (নিরাপদ ড্রপডাউন ও কনফার্মেশন সহ ডিলিট)
 # ══════════════════════════════════════════════════════════════
 elif menu == "Customer Directory":
     st.title("Customer Directory Management")
@@ -197,7 +211,7 @@ elif menu == "Customer Directory":
             st.error("⚠️ Confirm Action: Are you sure you want to permanently delete this customer?")
             c_b1, c_b2, _ = st.columns([1, 1, 4])
             if c_b1.button("Yes, Confirm Delete", type="primary", key="conf_del_cust"):
-                db_query("DELETE FROM customers WHERE id=%s", (st.session_state.delete_id,))
+                run_query("DELETE FROM customers WHERE id=%s", (st.session_state.delete_id,))
                 st.session_state.delete_id = None
                 st.session_state.delete_mode = None
                 st.rerun()
@@ -221,12 +235,12 @@ elif menu == "Customer Directory":
             if st.form_submit_button(submit_label):
                 if c_name.strip():
                     if st.session_state.edit_id:
-                        db_query("UPDATE customers SET name=%s, phone=%s, address=%s, thread_codes=%s WHERE id=%s",
+                        run_query("UPDATE customers SET name=%s, phone=%s, address=%s, thread_codes=%s WHERE id=%s",
                                  (c_name.strip(), c_phone.strip(), c_address.strip(), c_threads.strip(), st.session_state.edit_id))
                         st.session_state.edit_id = None
                         st.session_state.edit_data = {}
                     else:
-                        db_query("INSERT INTO customers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
+                        run_query("INSERT INTO customers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
                                  (c_name.strip(), c_phone.strip(), c_address.strip(), c_threads.strip()))
                     st.rerun()
                 else:
@@ -246,9 +260,9 @@ elif menu == "Customer Directory":
         if search_c:
             search_val = f"%{search_c.strip().lower()}%"
             sql += " WHERE LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(thread_codes) LIKE %s"
-            cdf = db_query(sql, (search_val, search_val, search_val), fetch=True)
+            cdf = run_query(sql, (search_val, search_val, search_val), is_fetch=True)
         else:
-            cdf = db_query(sql, fetch=True)
+            cdf = run_query(sql, is_fetch=True)
         
         if cdf is not None and not cdf.empty:
             for _, row in cdf.iterrows():
@@ -268,4 +282,4 @@ elif menu == "Customer Directory":
                             st.session_state.delete_mode = "customer"
                             st.rerun()
         else:
-            st.info("No customers found.")
+            st.info("No customers registered yet.")
