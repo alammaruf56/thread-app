@@ -2,16 +2,8 @@ import streamlit as st
 import mysql.connector
 import pandas as pd
 
-# ১. পেজ কনফিগারেশন ও প্রিমিয়াম UI স্টাইলিং (স্পেস ও ল্যাগ কমানোর জন্য)
+# ১. পেজ কনফিগারেশন (কনফ্লিক্ট এড়াতে কোনো এক্সটার্নাল সিএসএস মার্কডাউন রাখা হয়নি)
 st.set_page_config(page_title="Thread Suite Pro", layout="wide")
-st.markdown("""
-    <style>
-    .block-container {padding-top: 1.5rem; padding-bottom: 1rem;}
-    div.stButton > button {width: 100%; border-radius: 6px;}
-    .stSelectbox div[data-baseweb="select"] {border-radius: 6px;}
-    div[data-testid="stForm"] {border-radius: 8px; padding: 15px;}
-    </style>
-""", unsafe_with_html=True)
 
 # ২. গ্লোবাল কানেকশন পুলিং (কানেকশন লিক ও ক্র্যাশ চিরতরে বন্ধ)
 @st.cache_resource
@@ -31,7 +23,7 @@ def get_db_pool():
 
 db_conn = get_db_pool()
 
-# ৩. হাই-স্পিড ডেটা কুয়েরি এক্সিকিউটর (মিলি-সেকেন্ডে রেসপন্স করবে)
+# ৩. হাই-স্পিড ডেটা কুয়েরি এক্সিকিউটর
 def db_query(sql, params=None, fetch=False):
     if not db_conn:
         return pd.DataFrame() if fetch else False
@@ -52,14 +44,14 @@ st.sidebar.title("THREAD SUITE")
 st.sidebar.markdown("---")
 menu = st.sidebar.radio("NAVIGATION", ["Thread Inventory & Stock", "Seller Records", "Customer Directory"])
 
-# গ্লোবাল স্টেট ট্র্যাকিং (যাতে এডিট/ডিলিট করার সময় ল্যাগ বা ক্র্যাশ না করে)
+# গ্লোবাল স্টেট ট্র্যাকিং (ল্যাগ বা পেজ ব্রেকিং প্রতিরোধ করার জন্য)
 if "delete_id" not in st.session_state: st.session_state.delete_id = None
 if "delete_mode" not in st.session_state: st.session_state.delete_mode = None
 if "edit_id" not in st.session_state: st.session_state.edit_id = None
 if "edit_data" not in st.session_state: st.session_state.edit_data = {}
 
 # ══════════════════════════════════════════════════════════════
-# ১. থ্রেড ইনভেন্টরি ও স্টক পেজ (১০০% ইনস্ট্যান্ট সেভ ফিক্স)
+# ১. থ্রেড ইনভেন্টরি ও স্টক পেজ
 # ══════════════════════════════════════════════════════════════
 if menu == "Thread Inventory & Stock":
     st.title("Product Catalog & Stock Volume")
@@ -78,7 +70,6 @@ if menu == "Thread Inventory & Stock":
             if t_code.strip() and t_name.strip():
                 final_qty = t_qty if action == "Stock IN (Buy/Add)" else -t_qty
                 
-                # অন-ডুপ্লিকেট কিউওয়ার্ড ব্যবহার করে এক কুয়েরিতেই ইনসার্ট ও লাইভ স্টক ক্যালকুলেশন
                 success = db_query("""
                     INSERT INTO threads (thread_code, thread_name, current_stock) 
                     VALUES (%s, %s, %s) 
@@ -95,7 +86,7 @@ if menu == "Thread Inventory & Stock":
 
     with col_view:
         st.subheader("Live Available Stock")
-        search_t = st.text_input("Search Inventory by Code or Name (Any Case)...")
+        search_t = st.text_input("Search Inventory by Code or Name...")
         
         sql = "SELECT thread_code as 'SKU/Code', thread_name as 'Product Name', current_stock as 'Available Stock' FROM threads"
         if search_t:
@@ -117,7 +108,6 @@ if menu == "Thread Inventory & Stock":
 elif menu == "Seller Records":
     st.title("Seller Directory Management")
     
-    # প্রফেশনাল ডিলিট কনফার্মেশন প্রম্পট
     if st.session_state.delete_id and st.session_state.delete_mode == "seller":
         with st.container(border=True):
             st.error("⚠️ Confirm Action: Are you sure you want to permanently delete this seller?")
@@ -184,7 +174,6 @@ elif menu == "Seller Records":
                         st.markdown(f"**Seller:** {row['name']} | **Phone:** {row['phone'] if row['phone'] else 'N/A'}")
                         st.markdown(f"📍 {row['address'] if row['address'] else 'N/A'} | 🧵 `{row['thread_codes'] if row['thread_codes'] else 'None'}`")
                     with c2:
-                        # ক্লিন ড্রপডাউন ম্যানেজমেন্ট (কোনো বাটন ক্লাটার থাকবে না)
                         action_choice = st.selectbox("Action", ["Options...", "Edit", "Delete"], key=f"sel_act_{row['id']}")
                         if action_choice == "Edit":
                             st.session_state.edit_id = row['id']
@@ -203,7 +192,6 @@ elif menu == "Seller Records":
 elif menu == "Customer Directory":
     st.title("Customer Directory Management")
     
-    # প্রফেশনাল ডিলিট কনফার্মেশন প্রম্পট
     if st.session_state.delete_id and st.session_state.delete_mode == "customer":
         with st.container(border=True):
             st.error("⚠️ Confirm Action: Are you sure you want to permanently delete this customer?")
