@@ -45,7 +45,7 @@ st.sidebar.markdown("---")
 menu = st.sidebar.radio("NAVIGATION", ["Thread Inventory & Stock", "Seller Records", "Customer Directory"])
 
 # ══════════════════════════════════════════════════════════════
-# ১. থ্রেড ইনভেন্টরি ও স্টক ভলিউম পেজ
+# ১. থ্রেড ইনভেন্টরি ও স্টক ভলিউম পেজ (ইনপুট, আউটপুট ও সার্চ)
 # ══════════════════════════════════════════════════════════════
 if menu == "Thread Inventory & Stock":
     st.title("Product Catalog & Stock Volume")
@@ -71,14 +71,25 @@ if menu == "Thread Inventory & Stock":
 
     with col_view:
         st.subheader("Live Available Stock & Volume")
-        df = qry("SELECT thread_code as 'SKU/Code', thread_name as 'Product Name', current_stock as 'Available Stock (Volume)' FROM threads", fetch=True)
+        
+        # সুতার কোড বা নাম দিয়ে সার্চ করার জন্য কেস-ইনসেনসিটিভ সার্চ বক্স
+        search_t = st.text_input("Search Inventory by Code or Name (Any Case)...", placeholder="Type e.g., T10 or Cotton")
+        
+        sql = "SELECT thread_code as 'SKU/Code', thread_name as 'Product Name', current_stock as 'Available Stock (Volume)' FROM threads"
+        if search_t:
+            search_val = f"%{search_t.strip().lower()}%"
+            sql += " WHERE LOWER(thread_code) LIKE %s OR LOWER(thread_name) LIKE %s"
+            df = qry(sql, (search_val, search_val), fetch=True)
+        else:
+            df = qry(sql, fetch=True)
+            
         if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
-            st.info("No stock data available in the catalog.")
+            st.info("No stock data found matching the criteria.")
 
 # ══════════════════════════════════════════════════════════════
-# ২. সেলার ডিরেক্টরি (স্মার্ট ক্যাপিটাল/স্মাল সার্চ, এডিট, ডিলিট)
+# ২. সেলার ডিরেক্টরি
 # ══════════════════════════════════════════════════════════════
 elif menu == "Seller Records":
     st.title("Seller Directory Management")
@@ -125,7 +136,6 @@ elif menu == "Seller Records":
         
         sql = "SELECT id, name, phone, address, thread_codes FROM sellers"
         if search_s:
-            # LOWER ফাংশন দিয়ে সার্চকে Case-Insensitive করা হয়েছে
             search_val = f"%{search_s.strip().lower()}%"
             sql += " WHERE LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(thread_codes) LIKE %s"
             sdf = qry(sql, (search_val, search_val, search_val), fetch=True)
@@ -152,7 +162,7 @@ elif menu == "Seller Records":
             st.info("No sellers found matching the criteria.")
 
 # ══════════════════════════════════════════════════════════════
-# ৩. কাস্টমার ডিরেক্টরি (স্মার্ট ক্যাপিটাল/স্মাল সার্চ, এডিট, ডিলিট)
+# ৩. কাস্টমার ডিরেক্টরি
 # ══════════════════════════════════════════════════════════════
 elif menu == "Customer Directory":
     st.title("Customer Directory Management")
@@ -199,7 +209,6 @@ elif menu == "Customer Directory":
         
         sql = "SELECT id, name, phone, address, thread_codes FROM customers"
         if search_c:
-            # LOWER ফাংশন দিয়ে সার্চকে Case-Insensitive করা হয়েছে
             search_val = f"%{search_c.strip().lower()}%"
             sql += " WHERE LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(thread_codes) LIKE %s"
             cdf = qry(sql, (search_val, search_val, search_val), fetch=True)
