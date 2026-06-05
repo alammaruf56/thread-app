@@ -1,6 +1,7 @@
 import streamlit as st
 import mysql.connector
 import pandas as pd
+import datetime
 
 # পেজ কনফিগারেশন
 st.set_page_config(page_title="Thread Suite Pro", layout="wide")
@@ -45,37 +46,42 @@ st.sidebar.markdown("---")
 menu = st.sidebar.radio("NAVIGATION", ["Thread Inventory & Stock", "Seller Records", "Customer Directory"])
 
 # ══════════════════════════════════════════════════════════════
-# ১. থ্রেড ইনভেন্টরি ও স্টক ভলিউম পেজ (ইনপুট, আউটপুট ও সার্চ)
+# ১. থ্রেড ইনভেন্টরি ও স্টক ভলিউম পেজ (কম্প্যাক্ট লেআউট ও স্টক আউট)
 # ══════════════════════════════════════════════════════════════
 if menu == "Thread Inventory & Stock":
     st.title("Product Catalog & Stock Volume")
     col_add, col_view = st.columns([1, 2], gap="large")
     
     with col_add:
-        st.subheader("Add / Update Thread Stock")
+        st.subheader("Manage Thread Stock")
         with st.form("add_thread_form", clear_on_submit=True):
             t_code = st.text_input("SKU / Code *")
             t_name = st.text_input("Product Name *")
-            t_qty = st.number_input("Initial Stock / Volume Qty", min_value=0, value=0, step=1)
-            if st.form_submit_button("Save Product to Stock"):
+            action = st.selectbox("Stock Action", ["Stock IN (Buy/Add)", "Stock OUT (Sell/Reduce)"])
+            t_qty = st.number_input("Quantity / Volume", min_value=1, value=1, step=1)
+            
+            if st.form_submit_button("Update Stock Ledger"):
                 if t_code and t_name:
+                    # স্টক বাড়াবে নাকি কমাবে তা নির্ধারণ
+                    final_qty = t_qty if action == "Stock IN (Buy/Add)" else -t_qty
+                    
+                    # মূল ইনভেন্টরি টেবিল আপডেট
                     qry("""
                         INSERT INTO threads (thread_code, thread_name, current_stock) 
                         VALUES (%s, %s, %s) 
                         ON DUPLICATE KEY UPDATE thread_name=%s, current_stock=current_stock+%s
-                    """, (t_code.strip(), t_name.strip(), t_qty, t_name.strip(), t_qty))
-                    st.success("Product stock catalog successfully updated!")
+                    """, (t_code.strip(), t_name.strip(), final_qty, t_name.strip(), final_qty))
+                    
+                    st.success(f"Stock successfully recorded as {action}!")
                     st.rerun()
                 else:
                     st.error("Please fill in all required fields.")
 
     with col_view:
-        st.subheader("Live Available Stock & Volume")
+        st.subheader("Live Available Stock")
+        search_t = st.text_input("Search Inventory by Code or Name...")
         
-        # সুতার কোড বা নাম দিয়ে সার্চ করার জন্য কেস-ইনসেনসিটিভ সার্চ বক্স
-        search_t = st.text_input("Search Inventory by Code or Name (Any Case)...", placeholder="Type e.g., T10 or Cotton")
-        
-        sql = "SELECT thread_code as 'SKU/Code', thread_name as 'Product Name', current_stock as 'Available Stock (Volume)' FROM threads"
+        sql = "SELECT thread_code as 'SKU/Code', thread_name as 'Product Name', current_stock as 'Available Stock' FROM threads"
         if search_t:
             search_val = f"%{search_t.strip().lower()}%"
             sql += " WHERE LOWER(thread_code) LIKE %s OR LOWER(thread_name) LIKE %s"
@@ -84,7 +90,9 @@ if menu == "Thread Inventory & Stock":
             df = qry(sql, fetch=True)
             
         if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            # টেবিলের সাইজ যাতে বড় ফাঁকা জায়গা না নেয়, তাই হাইট ডেটা অনুযায়ী লিমিট করা হয়েছে
+            calc_height = min(len(df) * 35 + 40, 300)
+            st.dataframe(df, use_container_width=True, hide_index=True, height=calc_height)
         else:
             st.info("No stock data found matching the criteria.")
 
@@ -105,7 +113,7 @@ elif menu == "Seller Records":
             s_name = st.text_input("Seller Name *", value=st.session_state.edit_seller_data.get('name', ''))
             s_phone = st.text_input("Phone Number", value=st.session_state.edit_seller_data.get('phone', ''))
             s_address = st.text_input("Address", value=st.session_state.edit_seller_data.get('address', ''))
-            s_threads = st.text_input("Supplied Thread Codes (e.g., T10, T20)", value=st.session_state.edit_seller_data.get('thread_codes', ''))
+            s_threads = st.text_input("Supplied Thread Codes", value=st.session_state.edit_seller_data.get('thread_codes', ''))
             
             submit_label = "Update Seller Profile" if st.session_state.edit_seller_id else "Save New Seller"
             if st.form_submit_button(submit_label):
@@ -132,7 +140,7 @@ elif menu == "Seller Records":
 
     with col2:
         st.subheader("Search & Manage Sellers")
-        search_s = st.text_input("Search by Name, Phone, or Thread Code (Any Case)...")
+        search_s = st.text_input("Search Sellers...")
         
         sql = "SELECT id, name, phone, address, thread_codes FROM sellers"
         if search_s:
@@ -178,7 +186,7 @@ elif menu == "Customer Directory":
             c_name = st.text_input("Customer Name *", value=st.session_state.edit_customer_data.get('name', ''))
             c_phone = st.text_input("Phone Number", value=st.session_state.edit_customer_data.get('phone', ''))
             c_address = st.text_input("Address", value=st.session_state.edit_customer_data.get('address', ''))
-            c_threads = st.text_input("Required Thread Codes (e.g., T10, T40)", value=st.session_state.edit_customer_data.get('thread_codes', ''))
+            c_threads = st.text_input("Required Thread Codes", value=st.session_state.edit_customer_data.get('thread_codes', ''))
             
             submit_label = "Update Customer Profile" if st.session_state.edit_customer_id else "Save New Customer"
             if st.form_submit_button(submit_label):
@@ -205,7 +213,7 @@ elif menu == "Customer Directory":
 
     with col2:
         st.subheader("Search & Manage Customers")
-        search_c = st.text_input("Search by Name, Phone, or Thread Code (Any Case)...")
+        search_c = st.text_input("Search Customers...")
         
         sql = "SELECT id, name, phone, address, thread_codes FROM customers"
         if search_c:
