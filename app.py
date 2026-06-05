@@ -1,7 +1,6 @@
 import streamlit as st
 import mysql.connector
 import pandas as pd
-import datetime
 
 # পেজ কনফিগারেশন
 st.set_page_config(page_title="Thread Suite Pro", layout="wide")
@@ -46,7 +45,7 @@ st.sidebar.markdown("---")
 menu = st.sidebar.radio("NAVIGATION", ["Thread Inventory & Stock", "Seller Records", "Customer Directory"])
 
 # ══════════════════════════════════════════════════════════════
-# ১. থ্রেড ইনভেন্টরি ও স্টক ভলিউম পেজ (কম্প্যাক্ট লেআউট ও স্টক আউট)
+# ১. থ্রেড ইনভেন্টরি ও স্টক ভলিউম পেজ (ইনস্ট্যান্ট সেভ ফিক্সড)
 # ══════════════════════════════════════════════════════════════
 if menu == "Thread Inventory & Stock":
     st.title("Product Catalog & Stock Volume")
@@ -62,16 +61,16 @@ if menu == "Thread Inventory & Stock":
             
             if st.form_submit_button("Update Stock Ledger"):
                 if t_code and t_name:
-                    # স্টক বাড়াবে নাকি কমাবে তা নির্ধারণ
                     final_qty = t_qty if action == "Stock IN (Buy/Add)" else -t_qty
                     
-                    # মূল ইনভেন্টরি টেবিল আপডেট
+                    # ডেটাবেসে ইনসার্ট বা আপডেট কুয়েরি
                     qry("""
                         INSERT INTO threads (thread_code, thread_name, current_stock) 
                         VALUES (%s, %s, %s) 
                         ON DUPLICATE KEY UPDATE thread_name=%s, current_stock=current_stock+%s
                     """, (t_code.strip(), t_name.strip(), final_qty, t_name.strip(), final_qty))
                     
+                    st.cache_resource.clear() # ক্যাশ ক্লিয়ার যাতে ডেটা সাথে সাথে দেখায়
                     st.success(f"Stock successfully recorded as {action}!")
                     st.rerun()
                 else:
@@ -90,14 +89,13 @@ if menu == "Thread Inventory & Stock":
             df = qry(sql, fetch=True)
             
         if df is not None and not df.empty:
-            # টেবিলের সাইজ যাতে বড় ফাঁকা জায়গা না নেয়, তাই হাইট ডেটা অনুযায়ী লিমিট করা হয়েছে
-            calc_height = min(len(df) * 35 + 40, 300)
+            calc_height = min(len(df) * 35 + 45, 350)
             st.dataframe(df, use_container_width=True, hide_index=True, height=calc_height)
         else:
-            st.info("No stock data found matching the criteria.")
+            st.info("No stock data found in database.")
 
 # ══════════════════════════════════════════════════════════════
-# ২. সেলার ডিরেক্টরি
+# ২. সেলার ডিরেক্টরি (কম্প্যাক্ট সাইজ লেআউট - কম জায়গায় বেশি ডেটা)
 # ══════════════════════════════════════════════════════════════
 elif menu == "Seller Records":
     st.title("Seller Directory Management")
@@ -128,6 +126,7 @@ elif menu == "Seller Records":
                         qry("INSERT INTO sellers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
                             (s_name.strip(), s_phone.strip(), s_address.strip(), s_threads.strip()))
                         st.success("New seller profile saved successfully!")
+                    st.cache_resource.clear()
                     st.rerun()
                 else:
                     st.error("Seller Name is required.")
@@ -152,25 +151,27 @@ elif menu == "Seller Records":
         
         if sdf is not None and not sdf.empty:
             for _, row in sdf.iterrows():
-                st.write(f"### {row['name']}")
-                st.write(f"**Phone:** {row['phone'] if row['phone'] else 'N/A'} | **Address:** {row['address'] if row['address'] else 'N/A'}")
-                st.write(f"**Deals with Threads:** `{row['thread_codes'] if row['thread_codes'] else 'None Assigned'}`")
-                
-                b_col1, b_col2, _ = st.columns([1, 1, 4])
-                if b_col1.button("Edit", key=f"edit_s_{row['id']}"):
-                    st.session_state.edit_seller_id = row['id']
-                    st.session_state.edit_seller_data = row
-                    st.rerun()
-                if b_col2.button("Delete", key=f"del_s_{row['id']}"):
-                    qry("DELETE FROM sellers WHERE id=%s", (row['id'],))
-                    st.success(f"Deleted {row['name']} successfully.")
-                    st.rerun()
-                st.markdown("---")
+                # প্রতিটি সেলারকে একদম কাছাকাছি ও ছোট লাইনে রিডিউস করে আনা হয়েছে
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([2, 3, 1.5])
+                    c1.markdown(f"**👤 {row['name']}**")
+                    c2.markdown(f"📞 {row['phone'] if row['phone'] else 'N/A'} | 📍 {row['address'] if row['address'] else 'N/A'}\n\n🧵 `{row['thread_codes'] if row['thread_codes'] else 'None'}`")
+                    
+                    # অ্যাকশন বাটন এক লাইনে কম্প্যাক্টভাবে
+                    b1, b2 = c3.columns(2)
+                    if b1.button("✏️", key=f"edit_s_{row['id']}", help="Edit"):
+                        st.session_state.edit_seller_id = row['id']
+                        st.session_state.edit_seller_data = row
+                        st.rerun()
+                    if b2.button("❌", key=f"del_s_{row['id']}", help="Delete"):
+                        qry("DELETE FROM sellers WHERE id=%s", (row['id'],))
+                        st.cache_resource.clear()
+                        st.rerun()
         else:
             st.info("No sellers found matching the criteria.")
 
 # ══════════════════════════════════════════════════════════════
-# ৩. কাস্টমার ডিরেক্টরি
+# ৩. কাস্টমার ডিরেক্টরি (কম্প্যাক্ট সাইজ লেআউট)
 # ══════════════════════════════════════════════════════════════
 elif menu == "Customer Directory":
     st.title("Customer Directory Management")
@@ -201,6 +202,7 @@ elif menu == "Customer Directory":
                         qry("INSERT INTO customers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
                             (c_name.strip(), c_phone.strip(), c_address.strip(), c_threads.strip()))
                         st.success("New customer profile saved successfully!")
+                    st.cache_resource.clear()
                     st.rerun()
                 else:
                     st.error("Customer Name is required.")
@@ -225,19 +227,20 @@ elif menu == "Customer Directory":
         
         if cdf is not None and not cdf.empty:
             for _, row in cdf.iterrows():
-                st.write(f"### {row['name']}")
-                st.write(f"**Phone:** {row['phone'] if row['phone'] else 'N/A'} | **Address:** {row['address'] if row['address'] else 'N/A'}")
-                st.write(f"**Demanded Threads:** `{row['thread_codes'] if row['thread_codes'] else 'None Assigned'}`")
-                
-                b_col1, b_col2, _ = st.columns([1, 1, 4])
-                if b_col1.button("Edit", key=f"edit_c_{row['id']}"):
-                    st.session_state.edit_customer_id = row['id']
-                    st.session_state.edit_customer_data = row
-                    st.rerun()
-                if b_col2.button("Delete", key=f"del_c_{row['id']}"):
-                    qry("DELETE FROM customers WHERE id=%s", (row['id'],))
-                    st.success(f"Deleted {row['name']} successfully.")
-                    st.rerun()
-                st.markdown("---")
+                # প্রতিটি কাস্টমারকে ছিমছাম বক্সে সাজানো হয়েছে
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([2, 3, 1.5])
+                    c1.markdown(f"**👤 {row['name']}**")
+                    c2.markdown(f"📞 {row['phone'] if row['phone'] else 'N/A'} | 📍 {row['address'] if row['address'] else 'N/A'}\n\n🧵 `{row['thread_codes'] if row['thread_codes'] else 'None'}`")
+                    
+                    b1, b2 = c3.columns(2)
+                    if b1.button("✏️", key=f"edit_c_{row['id']}", help="Edit"):
+                        st.session_state.edit_customer_id = row['id']
+                        st.session_state.edit_customer_data = row
+                        st.rerun()
+                    if b2.button("❌", key=f"del_c_{row['id']}", help="Delete"):
+                        qry("DELETE FROM customers WHERE id=%s", (row['id'],))
+                        st.cache_resource.clear()
+                        st.rerun()
         else:
             st.info("No customers found matching the criteria.")
