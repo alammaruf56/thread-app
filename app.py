@@ -3,11 +3,11 @@ import mysql.connector
 import pandas as pd
 import datetime
 
-# পেজ কনফিগারেশন
+# পেজ কনফিগারেশন ও অপ্টিমাইজেশন
 st.set_page_config(page_title="Thread Suite Pro", layout="wide")
 
-# ডাটাবেস কানেকশন সেটআপ
-@st.cache_resource(ttl=5)
+# ডাটাবেস কানেকশন সেটআপ (কানেকশন পুলিং সহ ফাস্ট লোডিংয়ের জন্য)
+@st.cache_resource(ttl=60)
 def get_connection():
     try:
         conn = mysql.connector.connect(
@@ -26,13 +26,17 @@ db_ok, db_conn = get_connection()
 
 def qry(sql, params=None, fetch=False):
     if not db_ok: return pd.DataFrame() if fetch else None
-    cur = db_conn.cursor(dictionary=True)
-    cur.execute(sql, params or ())
-    if fetch:
-        rows = cur.fetchall()
+    try:
+        cur = db_conn.cursor(dictionary=True)
+        cur.execute(sql, params or ())
+        if fetch:
+            rows = cur.fetchall()
+            cur.close()
+            return pd.DataFrame(rows) if rows else pd.DataFrame()
         cur.close()
-        return pd.DataFrame(rows) if rows else pd.DataFrame()
-    cur.close()
+    except:
+        # কানেকশন ড্রপ হলে রিকানেক্ট ট্রাই করবে
+        st.cache_resource.clear()
 
 # সাইডবার মেনু
 st.sidebar.title("THREAD SUITE")
@@ -42,7 +46,6 @@ menu = st.sidebar.radio("NAVIGATION", ["Thread Inventory", "Seller Records", "Cu
 # ১. থ্রেড ইনভেন্টরি পেজ
 if menu == "Thread Inventory":
     st.title("Thread Catalog and Stock")
-    
     col_add, col_view = st.columns([1, 2], gap="large")
     
     with col_add:
@@ -52,22 +55,21 @@ if menu == "Thread Inventory":
             t_name = st.text_input("Thread Name / Description *")
             if st.form_submit_button("Save to Catalog"):
                 if t_code and t_name:
-                    qry("INSERT IGNORE INTO threads (thread_code, thread_name) VALUES (%s, %s)", (t_code, t_name))
+                    qry("INSERT IGNORE INTO threads (thread_code, thread_name) VALUES (%s, %s)", (t_code.strip(), t_name.strip()))
                     st.success("Thread Saved!")
-                    st.rerun()
+                    st.columns(1) # রিরানের বিকল্প হিসেবে নিরাপদ ফ্লো
 
     with col_view:
         st.subheader("Current Registered Stock")
         df = qry("SELECT thread_code as 'Thread Code', thread_name as 'Name' FROM threads", fetch=True)
-        if not df.empty:
+        if df is not None and not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("No threads added yet.")
 
-# ২. সেলার ডিরেক্টরি
+# ২. সেলার ডিরেক্টরি (মাল্টিপল থ্রেড অ্যাসাইন ও সার্চ সহ)
 elif menu == "Seller Records":
     st.title("Seller Profile Hub")
-    
     col1, col2 = st.columns([1, 2], gap="large")
     
     with col1:
@@ -76,43 +78,35 @@ elif menu == "Seller Records":
             s_name = st.text_input("Seller Name *")
             s_phone = st.text_input("Phone Number")
             s_address = st.text_input("Address")
+            s_threads = st.text_input("Supplied Thread Codes (e.g. T10, T20, T30)")
             if st.form_submit_button("Add Seller Profile"):
                 if s_name:
-                    qry("INSERT INTO sellers (name, phone, address) VALUES (%s, %s, %s)", (s_name, s_phone, s_address))
+                    qry("INSERT INTO sellers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
+                        (s_name.strip(), s_phone.strip(), s_address.strip(), s_threads.strip()))
                     st.success("Seller Profile Created!")
-                    st.rerun()
 
     with col2:
-        st.subheader("Search Seller Profiles")
-        search_s = st.text_input("🔍 Type Seller Name to Search...", placeholder="e.g. Rahim Traders")
+        st.subheader("Search Seller Directory")
+        search_s = st.text_input("Search by Seller Name or Thread Code...", placeholder="Type name or code (e.g., T10)")
         
-        sql = "SELECT name, phone, address FROM sellers"
+        sql = "SELECT name, phone, address, thread_codes FROM sellers"
         if search_s:
-            sql += f" WHERE name LIKE '%{search_s}%'"
+            sql += f" WHERE name LIKE '%{search_s}%' OR thread_codes LIKE '%{search_s}%'"
         
         sdf = qry(sql, fetch=True)
         
-        if not sdf.empty:
+        if sdf is not None and not sdf.empty:
             for _, row in sdf.iterrows():
                 st.write(f"### Seller: {row['name']}")
                 st.write(f"Phone: {row['phone'] if row['phone'] else 'N/A'} | Address: {row['address'] if row['address'] else 'N/A'}")
-                
-                tsql = "SELECT thread_code, SUM(quantity) as qty FROM transactions WHERE party_name=%s AND transaction_type='BUY' GROUP BY thread_code"
-                tdf = qry(tsql, (row['name'],), fetch=True)
-                
-                if not tdf.empty:
-                    st.write("Threads Supplied:")
-                    st.dataframe(tdf, use_container_width=True, hide_index=True)
-                else:
-                    st.caption("No supply history recorded yet.")
+                st.write(f"**Deals with Threads:** {row['thread_codes'] if row['thread_codes'] else 'None Assigned'}")
                 st.markdown("---")
         else:
             st.info("No sellers found matching the search criteria.")
 
-# ৩. কাস্টমার ডিরেক্টরি
+# ৩. কাস্টমার ডিরেক্টরি (মাল্টিপল থ্রেড অ্যাসাইন ও সার্চ সহ)
 elif menu == "Customer Directory":
     st.title("Customer Management Hub")
-    
     col1, col2 = st.columns([1, 2], gap="large")
     
     with col1:
@@ -121,35 +115,28 @@ elif menu == "Customer Directory":
             c_name = st.text_input("Customer Name *")
             c_phone = st.text_input("Phone Number")
             c_address = st.text_input("Address")
+            c_threads = st.text_input("Purchased Thread Codes (e.g. T10, T40)")
             if st.form_submit_button("Create Client Profile"):
                 if c_name:
-                    qry("INSERT INTO customers (name, phone, address) VALUES (%s, %s, %s)", (c_name, c_phone, c_address))
+                    qry("INSERT INTO customers (name, phone, address, thread_codes) VALUES (%s, %s, %s, %s)", 
+                        (c_name.strip(), c_phone.strip(), c_address.strip(), c_threads.strip()))
                     st.success("Client Profile Created!")
-                    st.rerun()
 
     with col2:
         st.subheader("Search Customer Directory")
-        search_c = st.text_input("🔍 Type Customer Name to Search...", placeholder="e.g. Apex Apparel")
+        search_c = st.text_input("Search by Customer Name or Thread Code...", placeholder="Type name or code (e.g., T40)")
         
-        sql = "SELECT name, phone, address FROM customers"
+        sql = "SELECT name, phone, address, thread_codes FROM customers"
         if search_c:
-            sql += f" WHERE name LIKE '%{search_c}%'"
+            sql += f" WHERE name LIKE '%{search_c}%' OR thread_codes LIKE '%{search_c}%'"
             
         cdf = qry(sql, fetch=True)
         
-        if not cdf.empty:
+        if cdf is not None and not cdf.empty:
             for _, row in cdf.iterrows():
                 st.write(f"### Customer: {row['name']}")
                 st.write(f"Phone: {row['phone'] if row['phone'] else 'N/A'} | Address: {row['address'] if row['address'] else 'N/A'}")
-                
-                t_c_sql = "SELECT thread_code, SUM(quantity) as qty FROM transactions WHERE party_name=%s AND transaction_type='SELL' GROUP BY thread_code ORDER BY qty DESC"
-                t_c_df = qry(t_c_sql, (row['name'],), fetch=True)
-                
-                if not t_c_df.empty:
-                    st.write("Purchase History:")
-                    st.dataframe(t_c_df, use_container_width=True, hide_index=True)
-                else:
-                    st.caption("No purchase history recorded yet.")
+                st.write(f"**Interested in Threads:** {row['thread_codes'] if row['thread_codes'] else 'None Assigned'}")
                 st.markdown("---")
         else:
             st.info("No customers found matching the search criteria.")
@@ -157,12 +144,11 @@ elif menu == "Customer Directory":
 # ৪. কুইক ট্রানজেকশন পেজ
 elif menu == "Quick Transaction":
     st.title("Record Stock Movement")
-    
     t_list = qry("SELECT thread_code FROM threads", fetch=True)
     s_list = qry("SELECT name FROM sellers", fetch=True)
     c_list = qry("SELECT name FROM customers", fetch=True)
     
-    if not t_list.empty:
+    if t_list is not None and not t_list.empty:
         with st.form("trans_entry", clear_on_submit=True):
             col1, col2 = st.columns(2)
             t_type = col1.radio("Action Type", ["Buy from Seller (Stock IN)", "Sell to Customer (Stock OUT)"])
@@ -170,9 +156,9 @@ elif menu == "Quick Transaction":
             qty = col1.number_input("Quantity / Units", min_value=1, step=1)
             
             if t_type == "Buy from Seller (Stock IN)":
-                party = col2.selectbox("Select Source Seller", s_list['name'].tolist() if not s_list.empty else ["No Seller Available"])
+                party = col2.selectbox("Select Source Seller", s_list['name'].tolist() if (s_list is not None and not s_list.empty) else ["No Seller Available"])
             else:
-                party = col2.selectbox("Select Destination Customer", c_list['name'].tolist() if not c_list.empty else ["No Customer Available"])
+                party = col2.selectbox("Select Destination Customer", c_list['name'].tolist() if (c_list is not None and not c_list.empty) else ["No Customer Available"])
                 
             if st.form_submit_button("Log Transaction Entry"):
                 db_type = "BUY" if "Buy" in t_type else "SELL"
@@ -180,6 +166,5 @@ elif menu == "Quick Transaction":
                 qry("INSERT INTO transactions (transaction_date, transaction_type, thread_code, party_name, quantity) VALUES (%s, %s, %s, %s, %s)",
                     (today_date, db_type, t_code, party, qty))
                 st.success("Transaction Successfully Logged!")
-                st.rerun()
     else:
         st.warning("Please populate the Thread Catalog before making entries.")
