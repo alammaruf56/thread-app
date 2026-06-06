@@ -1,3 +1,16 @@
 [sidebar]
 showSidebarNavigation = false
 initialSidebarState = "collapsed"
+
+[global]
+developmentMode = false
+ 
+[client]
+showErrorDetails = false
+toolbarMode = "minimal"
+ 
+[browser]
+gatherUsageStats = false
+ 
+[server]
+headless = true

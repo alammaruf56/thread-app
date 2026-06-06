@@ -25,7 +25,31 @@ html, body, [class*="css"], .stApp {
     color: #111111 !important;
     font-family: 'Outfit', sans-serif !important;
 }
-footer, #MainMenu { visibility: hidden !important; }
+/* ── Hide ALL Streamlit branding completely ── */
+footer                                        { display: none !important; }
+#MainMenu                                     { display: none !important; }
+header[data-testid="stHeader"]                { display: none !important; }
+div[data-testid="stToolbar"]                  { display: none !important; }
+div[data-testid="stDecoration"]               { display: none !important; }
+div[data-testid="stStatusWidget"]             { display: none !important; }
+.viewerBadge_container__1QSob                 { display: none !important; }
+.viewerBadge_link__1S137                      { display: none !important; }
+#stDecoration                                 { display: none !important; }
+button[title="View fullscreen"]               { display: none !important; }
+button[data-testid="baseButton-header"]       { display: none !important; }
+.stDeployButton                               { display: none !important; }
+[data-testid="stAppViewBlockContainer"] > div:last-child iframe { display: none !important; }
+/* Hide the bottom-right Streamlit badge/watermark */
+._profileContainer_gzau3_53                   { display: none !important; }
+._profilePreview_gzau3_63                     { display: none !important; }
+section[data-testid="stBottom"]               { display: none !important; }
+div[class*="streamlit-wide"] > div:last-child { display: none !important; }
+.css-1y4p8pa                                  { display: none !important; }
+/* GitHub icon top right */
+a[href*="github.com"]                         { display: none !important; }
+/* Any badge or floating button bottom right */
+.e1eexe170                                    { display: none !important; }
+[data-testid="stActionButton"]                { display: none !important; }
 
 h1, h2, h3 {
     font-family: 'Playfair Display', serif !important;
