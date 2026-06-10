@@ -1,5 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - Final Version (env vars only)
+# THREAD SUITE PRO - Final (No st.secrets, Env Vars only)
 # ============================================================
 
 import streamlit as st
@@ -9,7 +9,6 @@ from datetime import date
 import base64
 import os
 
-# Page configuration
 st.set_page_config(
     page_title="Thread Suite Pro",
     page_icon="🧵",
@@ -17,7 +16,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Minimal CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -35,11 +33,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ DATABASE CONFIG ------------------
+# ------------------ DATABASE CONFIG (ONLY ENV VARS) ------------------
 def get_db_config():
-    """Get DB config from environment variables only."""
     return {
-        "host": os.getenv("TIDB_HOST", "localhost"),
+        "host": os.getenv("TIDB_HOST", ""),
         "port": int(os.getenv("TIDB_PORT", "4000")),
         "user": os.getenv("TIDB_USER", ""),
         "password": os.getenv("TIDB_PASSWORD", ""),
