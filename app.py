@@ -1,5 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - Final (No st.secrets, Env Vars only)
+# THREAD SUITE PRO - Final Production Version
 # ============================================================
 
 import streamlit as st
@@ -129,7 +129,6 @@ def show_dashboard():
     st.markdown('<p class="main-header">Business Dashboard</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Real-time overview</p>', unsafe_allow_html=True)
     
-    # COALESCE ensures no NULL
     total_threads = execute_query("SELECT COUNT(*) as c FROM threads")
     total_sellers = execute_query("SELECT COUNT(*) as c FROM sellers")
     total_customers = execute_query("SELECT COUNT(*) as c FROM customers")
@@ -141,8 +140,7 @@ def show_dashboard():
         st.error("Unable to load dashboard. Check database connection.")
         return
 
-    # Helper to safely get int value
-    def safe_int(df, col='v', default=0):
+    def safe_int(df, col='c', default=0):
         if df.empty:
             return default
         val = df[col].iloc[0]
@@ -150,19 +148,18 @@ def show_dashboard():
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_threads["c"].iloc[0])}</div><div class="metric-label">Thread Types</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(total_threads, "c")}</div><div class="metric-label">Thread Types</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_sellers["c"].iloc[0])}</div><div class="metric-label">Sellers</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(total_sellers, "c")}</div><div class="metric-label">Sellers</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_customers["c"].iloc[0])}</div><div class="metric-label">Customers</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(total_customers, "c")}</div><div class="metric-label">Customers</div></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(low_stock["c"].iloc[0])}</div><div class="metric-label">Low Stock</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(low_stock, "c")}</div><div class="metric-label">Low Stock</div></div>', unsafe_allow_html=True)
     with col5:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(total_inventory)}</div><div class="metric-label">Total Stock</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(total_inventory, "v")}</div><div class="metric-label">Total Stock</div></div>', unsafe_allow_html=True)
     with col6:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(today_sales)}</div><div class="metric-label">Sold Today</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(today_sales, "v")}</div><div class="metric-label">Sold Today</div></div>', unsafe_allow_html=True)
 
-  
     st.markdown("---")
     st.subheader("Low Stock Alerts")
     low_df = execute_query("""
@@ -412,7 +409,7 @@ def show_transaction_form():
             ttype = st.selectbox("Type *", ["SELL","BUY","DAMAGED","RETURN"])
         with col2:
             qty = st.number_input("Quantity *", min_value=1, value=1)
-            party = st.text_input("Party Name")
+            party = st.text_input("Party Name (Seller/Customer)")
             tdate = st.date_input("Date", value=date.today())
         notes = st.text_area("Notes")
         if st.form_submit_button("Record Transaction"):
@@ -431,28 +428,47 @@ def show_transaction_form():
 # ------------------ SMART SEARCH ------------------
 def show_smart_search():
     st.markdown('<p class="main-header">Smart Search</p>', unsafe_allow_html=True)
-    search = st.text_input("", placeholder="🔍 Search threads, sellers, customers, transactions...")
+    st.markdown('<p class="sub-header">Search by product code/name to find sellers & customers</p>', unsafe_allow_html=True)
+    search = st.text_input("", placeholder="🔍 Search thread code or name...")
     if search:
         st.markdown("---")
-        threads_res = execute_query(f"SELECT 'Thread' as Type, thread_code, thread_name, category, current_stock FROM threads WHERE thread_code LIKE '%{search}%' OR thread_name LIKE '%{search}%' OR category LIKE '%{search}%' LIMIT 10")
-        sellers_res = execute_query(f"SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE name LIKE '%{search}%' OR phone LIKE '%{search}%' OR thread_codes LIKE '%{search}%' LIMIT 10")
-        custs_res = execute_query(f"SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE name LIKE '%{search}%' OR phone LIKE '%{search}%' OR thread_codes LIKE '%{search}%' LIMIT 10")
-        trans_res = execute_query(f"SELECT 'Transaction' as Type, transaction_date, transaction_type, thread_code, party_name, quantity FROM transactions WHERE thread_code LIKE '%{search}%' OR party_name LIKE '%{search}%' OR notes LIKE '%{search}%' ORDER BY transaction_date DESC LIMIT 10")
-        
+        # Find matching threads
+        threads_res = execute_query(f"SELECT thread_code, thread_name, category, current_stock FROM threads WHERE thread_code LIKE '%{search}%' OR thread_name LIKE '%{search}%'")
         if not threads_res.empty:
-            st.subheader("Threads")
+            st.subheader("Matching Threads")
             st.dataframe(threads_res, use_container_width=True, hide_index=True)
-        if not sellers_res.empty:
-            st.subheader("Sellers")
-            st.dataframe(sellers_res, use_container_width=True, hide_index=True)
-        if not custs_res.empty:
-            st.subheader("Customers")
-            st.dataframe(custs_res, use_container_width=True, hide_index=True)
-        if not trans_res.empty:
-            st.subheader("Transactions")
-            st.dataframe(trans_res, use_container_width=True, hide_index=True)
-        if threads_res.empty and sellers_res.empty and custs_res.empty and trans_res.empty:
-            st.info("No results found.")
+            # For each matching thread, show related sellers and customers
+            for _, trow in threads_res.iterrows():
+                code = trow['thread_code']
+                name = trow['thread_name']
+                with st.expander(f"Sellers & Customers for {code} - {name}"):
+                    colA, colB = st.columns(2)
+                    with colA:
+                        st.markdown("**Sellers who supply this thread**")
+                        sell_df = execute_query(f"SELECT * FROM sellers WHERE thread_codes LIKE '%{code}%'")
+                        if not sell_df.empty:
+                            st.dataframe(sell_df[['name','phone','address','thread_codes']], use_container_width=True, hide_index=True)
+                        else:
+                            st.write("No sellers found.")
+                    with colB:
+                        st.markdown("**Customers who buy this thread**")
+                        cust_df = execute_query(f"SELECT * FROM customers WHERE thread_codes LIKE '%{code}%'")
+                        if not cust_df.empty:
+                            st.dataframe(cust_df[['name','phone','address','thread_codes']], use_container_width=True, hide_index=True)
+                        else:
+                            st.write("No customers found.")
+        else:
+            # If no thread matches, also check sellers/customers directly
+            sellers_res = execute_query(f"SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE name LIKE '%{search}%' OR thread_codes LIKE '%{search}%'")
+            custs_res = execute_query(f"SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE name LIKE '%{search}%' OR thread_codes LIKE '%{search}%'")
+            if not sellers_res.empty:
+                st.subheader("Sellers matching your search")
+                st.dataframe(sellers_res, use_container_width=True, hide_index=True)
+            if not custs_res.empty:
+                st.subheader("Customers matching your search")
+                st.dataframe(custs_res, use_container_width=True, hide_index=True)
+            if sellers_res.empty and custs_res.empty:
+                st.info("No results found.")
 
 # ------------------ TRANSACTION HISTORY ------------------
 def show_transaction_history():
