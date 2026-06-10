@@ -1,5 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - Final Production Version
+# THREAD SUITE PRO - Final Production (Case-Insensitive Search)
 # ============================================================
 
 import streamlit as st
@@ -200,9 +200,9 @@ def show_inventory():
         
         query = "SELECT thread_code, thread_name, category, current_stock, unit, low_stock_threshold FROM threads WHERE 1=1"
         if search:
-            query += f" AND (thread_code LIKE '%{search}%' OR thread_name LIKE '%{search}%' OR category LIKE '%{search}%')"
+            query += f" AND (LOWER(thread_code) LIKE LOWER('%{search}%') OR LOWER(thread_name) LIKE LOWER('%{search}%') OR LOWER(category) LIKE LOWER('%{search}%'))"
         if sel_cat != 'All':
-            query += f" AND category = '{sel_cat}'"
+            query += f" AND LOWER(category) = LOWER('{sel_cat}')"
         if stock_filter == "In Stock":
             query += " AND current_stock > low_stock_threshold"
         elif stock_filter == "Low Stock":
@@ -281,7 +281,7 @@ def show_sellers():
         search = st.text_input("Search sellers", placeholder="Name, phone, thread codes...")
         query = "SELECT * FROM sellers WHERE 1=1"
         if search:
-            query += f" AND (name LIKE '%{search}%' OR phone LIKE '%{search}%' OR address LIKE '%{search}%' OR thread_codes LIKE '%{search}%')"
+            query += f" AND (LOWER(name) LIKE LOWER('%{search}%') OR LOWER(phone) LIKE LOWER('%{search}%') OR LOWER(address) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%'))"
         query += " ORDER BY name"
         sellers = execute_query(query)
         if not sellers.empty:
@@ -339,7 +339,7 @@ def show_customers():
         search = st.text_input("Search customers", placeholder="Name, phone, thread codes...")
         query = "SELECT * FROM customers WHERE 1=1"
         if search:
-            query += f" AND (name LIKE '%{search}%' OR phone LIKE '%{search}%' OR address LIKE '%{search}%' OR thread_codes LIKE '%{search}%')"
+            query += f" AND (LOWER(name) LIKE LOWER('%{search}%') OR LOWER(phone) LIKE LOWER('%{search}%') OR LOWER(address) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%'))"
         query += " ORDER BY name"
         custs = execute_query(query)
         if not custs.empty:
@@ -349,7 +349,7 @@ def show_customers():
                     st.write(f"Address: {c.get('address','')}")
                     st.write(f"Thread Codes: {c.get('thread_codes','')}")
                     if c.get('notes'): st.write(f"Notes: {c['notes']}")
-                    hist = execute_query(f"SELECT transaction_date, thread_code, quantity FROM transactions WHERE party_name LIKE '%{c['name']}%' AND transaction_type='SELL' ORDER BY transaction_date DESC LIMIT 10")
+                    hist = execute_query(f"SELECT transaction_date, thread_code, quantity FROM transactions WHERE LOWER(party_name) LIKE LOWER('%{c['name']}%') AND transaction_type='SELL' ORDER BY transaction_date DESC LIMIT 10")
                     if not hist.empty:
                         st.write("Purchase History:")
                         st.dataframe(hist, use_container_width=True, hide_index=True)
@@ -432,12 +432,11 @@ def show_smart_search():
     search = st.text_input("", placeholder="🔍 Search thread code or name...")
     if search:
         st.markdown("---")
-        # Find matching threads
-        threads_res = execute_query(f"SELECT thread_code, thread_name, category, current_stock FROM threads WHERE thread_code LIKE '%{search}%' OR thread_name LIKE '%{search}%'")
+        # case-insensitive search for threads
+        threads_res = execute_query(f"SELECT thread_code, thread_name, category, current_stock FROM threads WHERE LOWER(thread_code) LIKE LOWER('%{search}%') OR LOWER(thread_name) LIKE LOWER('%{search}%')")
         if not threads_res.empty:
             st.subheader("Matching Threads")
             st.dataframe(threads_res, use_container_width=True, hide_index=True)
-            # For each matching thread, show related sellers and customers
             for _, trow in threads_res.iterrows():
                 code = trow['thread_code']
                 name = trow['thread_name']
@@ -445,22 +444,22 @@ def show_smart_search():
                     colA, colB = st.columns(2)
                     with colA:
                         st.markdown("**Sellers who supply this thread**")
-                        sell_df = execute_query(f"SELECT * FROM sellers WHERE thread_codes LIKE '%{code}%'")
+                        sell_df = execute_query(f"SELECT * FROM sellers WHERE LOWER(thread_codes) LIKE LOWER('%{code}%')")
                         if not sell_df.empty:
                             st.dataframe(sell_df[['name','phone','address','thread_codes']], use_container_width=True, hide_index=True)
                         else:
                             st.write("No sellers found.")
                     with colB:
                         st.markdown("**Customers who buy this thread**")
-                        cust_df = execute_query(f"SELECT * FROM customers WHERE thread_codes LIKE '%{code}%'")
+                        cust_df = execute_query(f"SELECT * FROM customers WHERE LOWER(thread_codes) LIKE LOWER('%{code}%')")
                         if not cust_df.empty:
                             st.dataframe(cust_df[['name','phone','address','thread_codes']], use_container_width=True, hide_index=True)
                         else:
                             st.write("No customers found.")
         else:
-            # If no thread matches, also check sellers/customers directly
-            sellers_res = execute_query(f"SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE name LIKE '%{search}%' OR thread_codes LIKE '%{search}%'")
-            custs_res = execute_query(f"SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE name LIKE '%{search}%' OR thread_codes LIKE '%{search}%'")
+            # direct search in sellers/customers
+            sellers_res = execute_query(f"SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE LOWER(name) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%')")
+            custs_res = execute_query(f"SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE LOWER(name) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%')")
             if not sellers_res.empty:
                 st.subheader("Sellers matching your search")
                 st.dataframe(sellers_res, use_container_width=True, hide_index=True)
@@ -493,7 +492,7 @@ def show_transaction_history():
     elif dr == "This Month":
         query += " AND MONTH(transaction_date) = MONTH(CURDATE()) AND YEAR(transaction_date) = YEAR(CURDATE())"
     if party_search:
-        query += f" AND party_name LIKE '%{party_search}%'"
+        query += f" AND LOWER(party_name) LIKE LOWER('%{party_search}%')"
     query += " ORDER BY transaction_date DESC, id DESC"
     
     df = execute_query(query)
