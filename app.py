@@ -1,726 +1,534 @@
+# ============================================================
+# THREAD SUITE PRO - Clean Business Management System
+# Run: streamlit run app.py
+# ============================================================
+
 import streamlit as st
 import mysql.connector
 import pandas as pd
-import datetime
+from datetime import date
+import base64
 
-# ১. পেজ কনফিগারেশন 
+# Page configuration
 st.set_page_config(
     page_title="Thread Suite Pro",
+    page_icon="🧵",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# আপনার অরিজিনাল সিএসএস স্টাইল (১০০% অপরিবর্তিত)
+# Custom CSS - Professional look without symbols
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght=400;500;600;700&family=Playfair+Display:wght=600;700&display=swap');
-html, body, [class*="css"], .stApp {
-    background-color: #FDFBF7 !important;
-    color: #111111 !important;
-    font-family: 'Outfit', sans-serif !important;
-}
-footer, #MainMenu, header[data-testid="stHeader"],
-div[data-testid="stToolbar"], div[data-testid="stDecoration"],
-div[data-testid="stStatusWidget"], .stDeployButton,
-._profileContainer_gzau3_53, ._profilePreview_gzau3_63,
-section[data-testid="stBottom"], a[href*="github.com"],
-[data-testid="stActionButton"] {
-    display: none !important;
-}
-h1, h2, h3 {
-    font-family: 'Playfair Display', serif !important;
-    color: #111111 !important;
-}
-label, div[data-testid="stWidgetLabel"] p {
-    color: #333333 !important;
-    font-size: 0.85rem !important;
-    font-weight: 500 !important;
-}
-.stTextInput>div>div>input,
-.stNumberInput>div>div>input,
-.stTextArea>div>div>textarea,
-.stSelectbox>div>div>div {
-    background-color: #ffffff !important;
-    color: #111111 !important;
-    border: 1.5px solid #E0D8CC !important;
-    border-radius: 6px !important;
-}
-section[data-testid="stSidebar"] {
-    background-color: #111111 !important;
-}
-section[data-testid="stSidebar"] * { color: #FDFBF7 !important; }
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] div[data-testid="stWidgetLabel"] p {
-    color: #C4882A !important;
-    font-size: 0.75rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1.5px !important;
-}
-.stButton>button {
-    background-color: #111111 !important;
-    color: #FDFBF7 !important;
-    border-radius: 6px !important;
-    font-weight: 600 !important;
-    font-size: 0.8rem !important;
-    letter-spacing: 1px !important;
-    text-transform: uppercase !important;
-    border: 1.5px solid #111111 !important;
-}
-.stButton>button:hover {
-    background-color: #C4882A !important;
-    border-color: #C4882A !important;
-}
-div[data-testid="stMetricContainer"] {
-    background: #ffffff !important;
-    border: 1.5px solid #E0D8CC !important;
-    border-radius: 10px !important;
-    padding: 18px !important;
-}
-div[data-testid="stMetricValue"] > div {
-    font-family: 'Playfair Display', serif !important;
-    font-size: 2rem !important;
-    color: #C4882A !important;
-}
-div[data-testid="stMetricLabel"] > div {
-    font-size: 0.7rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 2px !important;
-    color: #888 !important;
-}
-.stForm {
-    background: #ffffff !important;
-    border: 1.5px solid #E0D8CC !important;
-    border-radius: 10px !important;
-    padding: 24px !important;
-}
-.stDataFrame {
-    border-radius: 8px !important;
-    border: 1.5px solid #E0D8CC !important;
-}
-.stTabs [data-baseweb="tab-list"] {
-    background: #F0EBE3;
-    border-radius: 8px;
-    padding: 4px;
-    gap: 4px;
-}
-.stTabs [data-baseweb="tab"] {
-    border-radius: 6px !important;
-    font-weight: 600 !important;
-    font-size: 0.82rem !important;
-    color: #666 !important;
-}
-.stTabs [aria-selected="true"] {
-    background: #ffffff !important;
-    color: #C4882A !important;
-}
-.result-card {
-    background: #ffffff;
-    border: 1.5px solid #E0D8CC;
-    border-radius: 10px;
-    padding: 14px 18px;
-    margin-bottom: 10px;
-    border-left: 4px solid #C4882A;
-}
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    * { font-family: 'Inter', sans-serif; }
+    
+    .main-header {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1E293B;
+        margin-bottom: 0.5rem;
+    }
+    
+    .sub-header {
+        font-size: 1rem;
+        color: #64748B;
+        margin-bottom: 2rem;
+    }
+    
+    .metric-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #E2E8F0;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1E293B;
+    }
+    
+    .metric-label {
+        font-size: 0.85rem;
+        color: #64748B;
+        margin-top: 0.25rem;
+    }
+    
+    .stButton > button {
+        background: #2563EB;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        width: 100%;
+    }
+    
+    .stButton > button:hover {
+        background: #1D4ED8;
+    }
+    
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > div,
+    .stNumberInput > div > div > input {
+        border-radius: 8px !important;
+        border: 1px solid #CBD5E1 !important;
+    }
+    
+    section[data-testid="stSidebar"] {
+        background: #0F172A;
+    }
+    section[data-testid="stSidebar"] .stMarkdown {
+        color: #F8FAFC;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ── DATABASE CONTROL (চোকিং এবং হ্যাং হওয়া রোধ করার জন্য আল্ট্রা অপ্টিমাইজড) ───
+# Database connection
+@st.cache_resource(ttl=3600)
 def get_db_connection():
-    if "mysql" not in st.secrets:
-        return None
     try:
-        # কোনো রিসোর্স ক্যাশ লক না রেখে প্রতি ক্লিকে ফ্রেশ লাইটওয়েট কানেকশন তৈরি হবে
-        return mysql.connector.connect(
-            host=st.secrets["mysql"]["host"],
-            port=int(st.secrets["mysql"]["port"]),
-            user=st.secrets["mysql"]["user"],
-            password=st.secrets["mysql"]["password"],
-            database=st.secrets["mysql"].get("database", "thread_business"),
+        conn = mysql.connector.connect(
+            host=st.secrets["tidb"]["host"],
+            port=st.secrets["tidb"]["port"],
+            user=st.secrets["tidb"]["user"],
+            password=st.secrets["tidb"]["password"],
+            database="thread_business",
             autocommit=True,
-            connection_timeout=5  # ৫ সেকেন্ডের বেশি ডাটাবেস রেসপন্স না করলে রিলিজ করে দেবে চোকিং এড়াতে
+            connect_timeout=10
         )
-    except:
+        return conn
+    except Exception as e:
+        st.error(f"Database connection failed: {e}")
         return None
 
-# কানেকশন প্রি-চেক
-_test_conn = get_db_connection()
-db_ok = _test_conn is not None
-if db_ok:
-    _test_conn.close()
-
-def qry(sql, params=None, fetch=False):
+def execute_query(query, params=None, fetch=True):
     conn = get_db_connection()
     if conn is None:
-        return pd.DataFrame() if fetch else None
+        return pd.DataFrame() if fetch else False
     try:
-        cur = conn.cursor(dictionary=True)
-        cur.execute(sql, params or ())
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(query, params or ())
         if fetch:
-            rows = cur.fetchall()
-            cur.close()
-            conn.close()
-            return pd.DataFrame(rows) if rows else pd.DataFrame()
-        cur.close()
-        conn.close()
-        return True
-    except Exception:
-        try: cur.close()
-        except: pass
-        try: conn.close()
-        except: pass
-        return pd.DataFrame() if fetch else None
+            result = cursor.fetchall()
+            cursor.close()
+            return pd.DataFrame(result) if result else pd.DataFrame()
+        else:
+            conn.commit()
+            cursor.close()
+            return True
+    except Exception as e:
+        st.error(f"Query error: {e}")
+        return pd.DataFrame() if fetch else False
 
-def qry_one(sql, params=None):
-    df = qry(sql, params, fetch=True)
-    return df.iloc[0].to_dict() if df is not None and not df.empty else {}
+def get_store_name():
+    result = execute_query("SELECT setting_value FROM store_settings WHERE setting_key='store_name'")
+    return result.iloc[0]['setting_value'] if not result.empty else "Thread Suite Pro"
 
-def today():
-    return datetime.date.today().isoformat()
+def export_csv(df):
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()
+    return f'<a href="data:file/csv;base64,{b64}" download="export.csv"><button style="background:#2563EB;color:white;border:none;padding:8px 16px;border-radius:6px;">Download CSV</button></a>'
 
-# ── DEMO DATA ─────────────────────────────────────────────────
-def init_demo():
-    if "threads" not in st.session_state:
-        st.session_state.threads = [
-            {"thread_code": "T10", "thread_name": "Red Cotton 40/2",  "category": "Cotton",    "current_stock": 620, "unit": "Cone",  "low_stock_threshold": 50},
-            {"thread_code": "T20", "thread_name": "White Silk 30D",   "category": "Silk",      "current_stock": 180, "unit": "Spool", "low_stock_threshold": 20},
-            {"thread_code": "T30", "thread_name": "Black Poly 120D",  "category": "Polyester", "current_stock": 12,  "unit": "Cone",  "low_stock_threshold": 30},
-        ]
-    if "sellers" not in st.session_state:
-        st.session_state.sellers = [
-            {"id": 1, "name": "Rahim Traders",  "phone": "01711223344", "address": "Mirpur, Dhaka",  "thread_codes": "T10, T20"},
-            {"id": 2, "name": "Karim Fabrics",  "phone": "01822334455", "address": "Gulshan, Dhaka", "thread_codes": "T30"},
-        ]
-    if "customers" not in st.session_state:
-        st.session_state.customers = [
-            {"id": 1, "name": "Apex Apparel",   "phone": "01933445566", "address": "Uttara, Dhaka",  "thread_codes": "T10, T30"},
-            {"id": 2, "name": "Envoy Outlets",  "phone": "01644556677", "address": "Banani, Dhaka",  "thread_codes": "T20"},
-        ]
-    if "transactions" not in st.session_state:
-        st.session_state.transactions = [
-            {"id": 1, "transaction_date": today(), "transaction_type": "SELL", "thread_code": "T10", "party_name": "Apex Apparel", "quantity": 100, "notes": ""},
-        ]
-    if "store_name" not in st.session_state:
-        st.session_state.store_name = "My Thread Business"
+# Main app
+def main():
+    with st.sidebar:
+        store_name = get_store_name()
+        st.markdown(f"### {store_name}")
+        st.markdown("---")
+        
+        menu = st.radio("Navigation", [
+            "Dashboard",
+            "Thread Inventory",
+            "Seller Directory",
+            "Customer Directory",
+            "Record Transaction",
+            "Smart Search",
+            "Transaction History",
+            "Settings"
+        ])
+        
+        st.markdown(f"*{date.today().strftime('%B %d, %Y')}*")
+    
+    if menu == "Dashboard":
+        show_dashboard()
+    elif menu == "Thread Inventory":
+        show_inventory()
+    elif menu == "Seller Directory":
+        show_sellers()
+    elif menu == "Customer Directory":
+        show_customers()
+    elif menu == "Record Transaction":
+        show_transaction_form()
+    elif menu == "Smart Search":
+        show_smart_search()
+    elif menu == "Transaction History":
+        show_transaction_history()
+    elif menu == "Settings":
+        show_settings()
 
-init_demo()
+def show_dashboard():
+    st.markdown('<p class="main-header">Business Dashboard</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Real-time overview</p>', unsafe_allow_html=True)
+    
+    total_threads = execute_query("SELECT COUNT(*) as c FROM threads")['c'].iloc[0]
+    total_sellers = execute_query("SELECT COUNT(*) as c FROM sellers")['c'].iloc[0]
+    total_customers = execute_query("SELECT COUNT(*) as c FROM customers")['c'].iloc[0]
+    low_stock = execute_query("SELECT COUNT(*) as c FROM threads WHERE current_stock <= low_stock_threshold")['c'].iloc[0]
+    today_sales = execute_query(f"SELECT COALESCE(SUM(quantity),0) as v FROM transactions WHERE transaction_type='SELL' AND transaction_date='{date.today()}'")['v'].iloc[0]
+    total_inventory = execute_query("SELECT SUM(current_stock) as v FROM threads")['v'].iloc[0]
 
-# ── SIDEBAR ───────────────────────────────────────────────────
-if db_ok:
-    row = qry_one("SELECT setting_value FROM store_settings WHERE setting_key='store_name'")
-    store_name = row.get("setting_value", "Thread Suite Pro") if row else "Thread Suite Pro"
-else:
-    store_name = st.session_state.get("store_name", "Thread Suite Pro")
-
-st.sidebar.markdown(f"""
-<div style='padding:6px 0 20px'>
-  <div style='font-family:"Playfair Display",serif;font-size:1.3rem;color:#E8A83A'>{store_name}</div>
-  <div style='font-size:0.6rem;color:#C4882A;letter-spacing:3px;margin-top:4px;text-transform:uppercase'>Business Suite</div>
-</div>
-""", unsafe_allow_html=True)
-
-if db_ok:
-    st.sidebar.markdown("<div style='background:#1a2e1a;border:1px solid #2d5a2d;border-radius:6px;padding:7px 12px;font-size:0.7rem;color:#7ecf7e;margin-bottom:12px'>Connected to Database</div>", unsafe_allow_html=True)
-else:
-    st.sidebar.markdown("<div style='background:#2e1a1a;border:1px solid #5a2d2d;border-radius:6px;padding:7px 12px;font-size:0.7rem;color:#cf7e7e;margin-bottom:12px'>Demo Mode — No DB</div>", unsafe_allow_html=True)
-
-PAGES = [
-    "Dashboard",
-    "Inventory and Stock",
-    "Seller Directory",
-    "Customer Directory",
-    "Transactions",
-    "Search",
-    "Settings",
-]
-page = st.sidebar.radio("", PAGES, label_visibility="collapsed")
-st.sidebar.markdown(f"<div style='font-size:0.65rem;color:#555;margin-top:12px'>{today()}</div>", unsafe_allow_html=True)
-
-def page_title(label, title, sub=""):
-    mb = "4px" if sub else "16px"
-    st.markdown(f"<p style='text-transform:uppercase;letter-spacing:3px;color:#C4882A;font-size:0.7rem;margin-bottom:2px'>{label}</p>", unsafe_allow_html=True)
-    st.markdown(f"<h1 style='margin-top:0;font-size:2rem;margin-bottom:{mb}'>{title}</h1>", unsafe_allow_html=True)
-    if sub:
-        st.markdown(f"<p style='color:#888;font-size:0.82rem;margin-top:0;margin-bottom:16px'>{sub}</p>", unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════
-# DASHBOARD
-# ══════════════════════════════════════════════════════════════
-if page == "Dashboard":
-    page_title("Overview", "Dashboard", "Live business summary")
-
-    if db_ok:
-        t_count   = qry_one("SELECT COUNT(*) as c FROM threads").get("c", 0)
-        s_count   = qry_one("SELECT COUNT(*) as c FROM sellers").get("c", 0)
-        c_count   = qry_one("SELECT COUNT(*) as c FROM customers").get("c", 0)
-        low_count = qry_one("SELECT COUNT(*) as c FROM threads WHERE current_stock <= low_stock_threshold").get("c", 0)
-        today_qty = qry_one(f"SELECT COALESCE(SUM(quantity),0) as v FROM transactions WHERE transaction_type='SELL' AND transaction_date='{today()}'").get("v", 0)
-        total_qty = qry_one("SELECT COALESCE(SUM(quantity),0) as v FROM transactions WHERE transaction_type='SELL'").get("v", 0)
-    else:
-        t_count   = len(st.session_state.threads)
-        s_count   = len(st.session_state.sellers)
-        c_count   = len(st.session_state.customers)
-        low_count = sum(1 for t in st.session_state.threads if t["current_stock"] <= t["low_stock_threshold"])
-        today_qty = sum(t["quantity"] for t in st.session_state.transactions if t["transaction_type"] == "SELL" and t["transaction_date"] == today())
-        total_qty = sum(t["quantity"] for t in st.session_state.transactions if t["transaction_type"] == "SELL")
-
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("Thread Types",  t_count)
-    c2.metric("Sellers",       s_count)
-    c3.metric("Customers",     c_count)
-    c4.metric("Low Stock",     low_count)
-    c5.metric("Sold Today",    today_qty)
-    c6.metric("Total Sold",    total_qty)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    with col1:
+        st.markdown('<div class="metric-card"><div class="metric-value">'+str(total_threads)+'</div><div class="metric-label">Thread Types</div></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="metric-card"><div class="metric-value">'+str(total_sellers)+'</div><div class="metric-label">Sellers</div></div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="metric-card"><div class="metric-value">'+str(total_customers)+'</div><div class="metric-label">Customers</div></div>', unsafe_allow_html=True)
+    with col4:
+        st.markdown('<div class="metric-card"><div class="metric-value">'+str(low_stock)+'</div><div class="metric-label">Low Stock</div></div>', unsafe_allow_html=True)
+    with col5:
+        st.markdown('<div class="metric-card"><div class="metric-value">'+str(total_inventory)+'</div><div class="metric-label">Total Stock</div></div>', unsafe_allow_html=True)
+    with col6:
+        st.markdown('<div class="metric-card"><div class="metric-value">'+str(today_sales)+'</div><div class="metric-label">Sold Today</div></div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    col1, col2 = st.columns(2)
+    st.subheader("Low Stock Alerts")
+    low_df = execute_query("""
+        SELECT thread_code, thread_name, current_stock, low_stock_threshold
+        FROM threads WHERE current_stock <= low_stock_threshold
+        ORDER BY current_stock ASC LIMIT 10
+    """)
+    if not low_df.empty:
+        st.dataframe(low_df, use_container_width=True, hide_index=True)
+    else:
+        st.success("All products are well stocked.")
 
-    with col1:
-        st.markdown("### Recent Transactions")
-        if db_ok:
-            df = qry("SELECT transaction_date, transaction_type, thread_code, party_name, quantity FROM transactions ORDER BY id DESC LIMIT 10", fetch=True)
-        else:
-            df = pd.DataFrame(st.session_state.transactions).sort_values("id", ascending=False).head(10)
-        if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No transactions yet.")
+    st.subheader("Recent Transactions")
+    recent = execute_query("""
+        SELECT transaction_date, transaction_type, thread_code, party_name, quantity
+        FROM transactions ORDER BY id DESC LIMIT 10
+    """)
+    if not recent.empty:
+        st.dataframe(recent, use_container_width=True, hide_index=True)
+    else:
+        st.info("No transactions yet.")
 
-    with col2:
-        st.markdown("### Low Stock Alerts")
-        if db_ok:
-            ldf = qry("SELECT thread_code, thread_name, current_stock, unit, low_stock_threshold FROM threads WHERE current_stock <= low_stock_threshold ORDER BY current_stock ASC LIMIT 8", fetch=True)
-        else:
-            ldf = pd.DataFrame([t for t in st.session_state.threads if t["current_stock"] <= t["low_stock_threshold"]])
-        if ldf is not None and not ldf.empty:
-            st.dataframe(ldf, use_container_width=True, hide_index=True)
-        else:
-            st.success("All stock levels are OK.")
-
-# ══════════════════════════════════════════════════════════════
-# INVENTORY AND STOCK
-# ══════════════════════════════════════════════════════════════
-elif page == "Inventory and Stock":
-    page_title("Inventory", "Inventory and Stock", "Manage your thread catalog and stock volumes")
-
-    tab1, tab2, tab3 = st.tabs(["View Stock", "Add Thread", "Stock Movement"])
-
+def show_inventory():
+    st.markdown('<p class="main-header">Thread Inventory</p>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["View Stock", "Add Thread", "Manage Thread"])
+    
     with tab1:
-        sq = st.text_input("", placeholder="Search by code, name, category...", label_visibility="collapsed", key="inv_search")
-        if db_ok:
-            sql = "SELECT thread_code, thread_name, category, current_stock, unit, low_stock_threshold FROM threads"
-            params = []
-            if sq:
-                sql += " WHERE LOWER(thread_code) LIKE %s OR LOWER(thread_name) LIKE %s OR LOWER(category) LIKE %s"
-                like = f"%{sq.lower()}%"
-                params = [like, like, like]
-            sql += " ORDER BY thread_name"
-            df = qry(sql, params or None, fetch=True)
-        else:
-            df = pd.DataFrame(st.session_state.threads)
-            if sq:
-                df = df[df.apply(lambda r: any(sq.lower() in str(r[c]).lower() for c in ["thread_code", "thread_name", "category"]), axis=1)]
-
-        if df is not None and not df.empty:
+        col1, col2, col3 = st.columns([3,1,1])
+        with col1:
+            search = st.text_input("Search by code, name, or category", placeholder="Type to filter...")
+        with col2:
+            cats = execute_query("SELECT DISTINCT category FROM threads WHERE category != ''")
+            cat_list = ['All'] + (cats['category'].tolist() if not cats.empty else [])
+            sel_cat = st.selectbox("Category", cat_list)
+        with col3:
+            stock_filter = st.selectbox("Stock Status", ["All", "In Stock", "Low Stock", "Out of Stock"])
+        
+        query = "SELECT thread_code, thread_name, category, current_stock, unit, low_stock_threshold FROM threads WHERE 1=1"
+        if search:
+            query += f" AND (thread_code LIKE '%{search}%' OR thread_name LIKE '%{search}%' OR category LIKE '%{search}%')"
+        if sel_cat != 'All':
+            query += f" AND category = '{sel_cat}'"
+        if stock_filter == "In Stock":
+            query += " AND current_stock > low_stock_threshold"
+        elif stock_filter == "Low Stock":
+            query += " AND current_stock <= low_stock_threshold AND current_stock > 0"
+        elif stock_filter == "Out of Stock":
+            query += " AND current_stock <= 0"
+        query += " ORDER BY current_stock ASC"
+        
+        df = execute_query(query)
+        if not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
+            st.markdown(export_csv(df), unsafe_allow_html=True)
         else:
-            st.info("No products found.")
-
-        if db_ok:
-            all_df = qry("SELECT thread_code, thread_name, current_stock, unit, category, low_stock_threshold FROM threads ORDER BY thread_name", fetch=True)
-        else:
-            all_df = pd.DataFrame(st.session_state.threads)
-
-        if all_df is not None and not all_df.empty:
-            st.markdown("---")
-            st.markdown("#### Edit or Delete a Thread")
-            codes = list(all_df["thread_code"])
-            chosen = st.selectbox("Select thread to edit or delete", ["-- Select --"] + codes, key="inv_edit_sel")
-            if chosen != "-- Select --":
-                row = all_df[all_df["thread_code"] == chosen].iloc[0]
-                with st.form("edit_thread_form"):
-                    c1, c2 = st.columns(2)
-                    new_name = c1.text_input("Product Name", value=str(row.get("thread_name", "")))
-                    new_cat  = c2.text_input("Category",     value=str(row.get("category", "")))
-                    c3, c4  = st.columns(2)
-                    new_stk  = c3.number_input("Current Stock", value=int(row.get("current_stock", 0)), min_value=0)
-                    unit_opts = ["Cone", "Spool", "kg", "Box", "Bundle", "Piece", "Dozen"]
-                    cur_unit  = str(row.get("unit", "Cone"))
-                    unit_idx  = unit_opts.index(cur_unit) if cur_unit in unit_opts else 0
-                    new_unit  = c4.selectbox("Unit", unit_opts, index=unit_idx)
-                    new_low   = st.number_input("Low Stock Alert At", value=int(row.get("low_stock_threshold", 10)), min_value=1)
-                    ce1, ce2  = st.columns(2)
-                    if ce1.form_submit_button("Save Changes"):
-                        if db_ok:
-                            qry("UPDATE threads SET thread_name=%s, category=%s, current_stock=%s, unit=%s, low_stock_threshold=%s WHERE thread_code=%s",
-                                (new_name, new_cat, new_stk, new_unit, new_low, chosen))
-                        else:
-                            for t in st.session_state.threads:
-                                if t["thread_code"] == chosen:
-                                    t.update({"thread_name": new_name, "current_stock": new_stk, "unit": new_unit})
-                        st.success("Updated successfully.")
-                        st.rerun()
-                    if ce2.form_submit_button("Delete Thread"):
-                        if db_ok:
-                            qry("DELETE FROM threads WHERE thread_code=%s", (chosen,))
-                        else:
-                            st.session_state.threads = [t for t in st.session_state.threads if t["thread_code"] != chosen]
-                        st.success("Deleted.")
-                        st.rerun()
-
+            st.info("No threads found.")
+    
     with tab2:
-        with st.form("add_thread_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            t_code = c1.text_input("SKU / Code  (e.g. T10)")
-            t_name = c2.text_input("Product Name  (e.g. Red Cotton 40/2)")
-            c3, c4, c5 = st.columns(3)
-            t_cat  = c3.text_input("Category  (e.g. Cotton)")
-            t_unit = c4.selectbox("Unit", ["Cone", "Spool", "kg", "Box", "Bundle", "Piece", "Dozen"])
-            t_qty  = c5.number_input("Opening Stock", min_value=0, step=1)
-            t_low  = st.number_input("Low Stock Alert At", min_value=1, value=10)
+        with st.form("add_thread"):
+            st.subheader("Add New Thread")
+            col1, col2 = st.columns(2)
+            with col1:
+                code = st.text_input("Thread Code *")
+                name = st.text_input("Thread Name *")
+                category = st.text_input("Category")
+            with col2:
+                stock = st.number_input("Opening Stock", min_value=0, value=0)
+                unit = st.selectbox("Unit", ["Cone","Spool","kg","Box","Bundle","Piece","Dozen"])
+                threshold = st.number_input("Low Stock Alert At", min_value=1, value=10)
             if st.form_submit_button("Save Thread"):
-                if not t_code or not t_name:
-                    st.error("Code and Name are required.")
+                if code and name:
+                    execute_query("""
+                        INSERT INTO threads (thread_code, thread_name, category, current_stock, unit, low_stock_threshold)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                        ON DUPLICATE KEY UPDATE thread_name=%s, category=%s, unit=%s, low_stock_threshold=%s, current_stock=current_stock+%s
+                    """, (code.strip(), name.strip(), category.strip(), stock, unit, threshold,
+                          name.strip(), category.strip(), unit, threshold, stock), fetch=False)
+                    st.success(f"Thread '{name}' saved!")
+                    st.rerun()
                 else:
-                    if db_ok:
-                        qry("""INSERT INTO threads (thread_code, thread_name, category, current_stock, unit, low_stock_threshold)
-                               VALUES (%s, %s, %s, %s, %s, %s)
-                               ON DUPLICATE KEY UPDATE thread_name=%s, category=%s, unit=%s,
-                               low_stock_threshold=%s, current_stock=current_stock+%s""",
-                            (t_code.strip(), t_name.strip(), t_cat.strip(), t_qty, t_unit, t_low,
-                             t_name.strip(), t_cat.strip(), t_unit, t_low, t_qty))
-                    else:
-                        existing = next((t for t in st.session_state.threads if t["thread_code"] == t_code.strip()), None)
-                        if existing:
-                            existing["current_stock"] += t_qty
-                        else:
-                            st.session_state.threads.append({
-                                "thread_code": t_code.strip(), "thread_name": t_name.strip(),
-                                "category": t_cat.strip(), "current_stock": t_qty,
-                                "unit": t_unit, "low_stock_threshold": t_low
-                            })
-                    st.success(f"Thread '{t_name}' saved.")
-                    st.rerun()
-
+                    st.error("Code and Name are required.")
+    
     with tab3:
-        if db_ok:
-            t_df = qry("SELECT thread_code, thread_name FROM threads ORDER BY thread_name", fetch=True)
-            t_names = list(t_df["thread_name"]) if t_df is not None and not t_df.empty else []
-            t_map   = dict(zip(t_df["thread_name"], t_df["thread_code"])) if t_df is not None and not t_df.empty else {}
-        else:
-            t_names = [t["thread_name"] for t in st.session_state.threads]
-            t_map   = {t["thread_name"]: t["thread_code"] for t in st.session_state.threads}
+        st.subheader("Edit or Delete Thread")
+        all_threads = execute_query("SELECT thread_code, thread_name FROM threads")
+        if not all_threads.empty:
+            sel = st.selectbox("Select thread", all_threads['thread_name'])
+            if sel:
+                code = all_threads[all_threads['thread_name'] == sel]['thread_code'].iloc[0]
+                row = execute_query(f"SELECT * FROM threads WHERE thread_code='{code}'").iloc[0]
+                with st.form("edit_thread_form"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        new_name = st.text_input("Name", value=row['thread_name'])
+                        new_cat = st.text_input("Category", value=row['category'])
+                    with col2:
+                        new_stock = st.number_input("Stock", value=int(row['current_stock']), min_value=0)
+                        new_unit = st.selectbox("Unit", ["Cone","Spool","kg","Box","Bundle","Piece","Dozen"],
+                                               index=["Cone","Spool","kg","Box","Bundle","Piece","Dozen"].index(row['unit']) if row['unit'] in ["Cone","Spool","kg","Box","Bundle","Piece","Dozen"] else 0)
+                    new_thresh = st.number_input("Low Stock Threshold", value=int(row['low_stock_threshold']), min_value=1)
+                    c1, c2 = st.columns(2)
+                    if c1.form_submit_button("Update"):
+                        execute_query("UPDATE threads SET thread_name=%s, category=%s, current_stock=%s, unit=%s, low_stock_threshold=%s WHERE thread_code=%s",
+                                      (new_name, new_cat, new_stock, new_unit, new_thresh, code), fetch=False)
+                        st.success("Updated!")
+                        st.rerun()
+                    if c2.form_submit_button("Delete"):
+                        execute_query("DELETE FROM threads WHERE thread_code=%s", (code,), fetch=False)
+                        st.success("Deleted!")
+                        st.rerun()
 
-        if not t_names:
-            st.warning("Add threads first.")
-        else:
-            with st.form("stock_form", clear_on_submit=True):
-                c1, c2 = st.columns(2)
-                mv_prod = c1.selectbox("Thread", t_names)
-                mv_type = c2.selectbox("Movement Type", ["BUY - Stock IN", "SELL - Stock OUT", "DAMAGED", "RETURN"])
-                c3, c4  = st.columns(2)
-                mv_qty  = c3.number_input("Quantity", min_value=1, step=1)
-                mv_date = c4.date_input("Date", value=datetime.date.today())
-                mv_party = st.text_input("Supplier or Customer Name")
-                mv_note  = st.text_input("Notes (optional)")
-                if st.form_submit_button("Save Movement"):
-                    t_code2  = t_map.get(mv_prod, "")
-                    tx_type  = "BUY" if "BUY" in mv_type else ("SELL" if "SELL" in mv_type else mv_type.split(" ")[0])
-                    if db_ok:
-                        qry("INSERT INTO transactions (transaction_date, transaction_type, thread_code, party_name, quantity, notes) VALUES (%s,%s,%s,%s,%s,%s)",
-                            (mv_date.isoformat(), tx_type, t_code2, mv_party, mv_qty, mv_note))
-                        if tx_type in ("BUY", "RETURN"):
-                            qry("UPDATE threads SET current_stock=current_stock+%s WHERE thread_code=%s", (mv_qty, t_code2))
-                        else:
-                            qry("UPDATE threads SET current_stock=GREATEST(current_stock-%s,0) WHERE thread_code=%s", (mv_qty, t_code2))
-                    else:
-                        for t in st.session_state.threads:
-                            if t["thread_code"] == t_code2:
-                                if tx_type in ("BUY", "RETURN"):
-                                    t["current_stock"] += mv_qty
-                                else:
-                                    t["current_stock"] = max(t["current_stock"] - mv_qty, 0)
-                        nid = len(st.session_state.transactions) + 1
-                        st.session_state.transactions.append({
-                            "id": nid, "transaction_date": mv_date.isoformat(),
-                            "transaction_type": tx_type, "thread_code": t_code2,
-                            "party_name": mv_party, "quantity": mv_qty, "notes": mv_note
-                        })
-                    st.success(f"Movement saved. Type: {tx_type}, Qty: {mv_qty}")
-                    st.rerun()
-
-# ══════════════════════════════════════════════════════════════
-# SELLER DIRECTORY
-# ══════════════════════════════════════════════════════════════
-elif page == "Seller Directory":
-    page_title("Records", "Seller Directory", "Who sells which threads")
-
-    tab1, tab2 = st.tabs(["View and Manage", "Add Seller"])
-
+def show_sellers():
+    st.markdown('<p class="main-header">Seller Directory</p>', unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["View Sellers", "Add Seller"])
     with tab1:
-        sq = st.text_input("", placeholder="Search by name, phone, address, or thread code...", label_visibility="collapsed", key="sell_search")
-        if db_ok:
-            sql = "SELECT id, name, phone, address, thread_codes FROM sellers"
-            params = []
-            if sq:
-                like = f"%{sq.strip().lower()}%"
-                sql += " WHERE LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(address) LIKE %s OR LOWER(thread_codes) LIKE %s"
-                params = [like, like, like, like]
-            sql += " ORDER BY name"
-            sdf = qry(sql, params or None, fetch=True)
-        else:
-            sdf = pd.DataFrame(st.session_state.sellers)
-            if sq:
-                sdf = sdf[sdf.apply(lambda r: any(sq.lower() in str(r[c]).lower() for c in ["name", "phone", "address", "thread_codes"]), axis=1)]
-
-        if sdf is not None and not sdf.empty:
-            st.markdown(f"{len(sdf)} seller(s) found")
-            for _, row in sdf.iterrows():
-                with st.expander(f"{row['name']}  |  {row.get('phone', '--')}  |  Threads: {row.get('thread_codes', '--')}"):
-                    st.write(f"**Phone:** {row.get('phone', '--')}")
-                    st.write(f"**Address:** {row.get('address', '--')}")
-                    st.write(f"**Thread Codes:** {row.get('thread_codes', 'None assigned')}")
-                    with st.form(f"edit_seller_{row['id']}"):
-                        ef1, ef2 = st.columns(2)
-                        en = ef1.text_input("Name",    value=str(row.get("name", "")),         key=f"sn_{row['id']}")
-                        ep = ef2.text_input("Phone",   value=str(row.get("phone", "")),        key=f"sp_{row['id']}")
-                        ea = ef1.text_input("Address", value=str(row.get("address", "")),      key=f"sa_{row['id']}")
-                        et = ef2.text_input("Thread Codes (e.g. T10, T20, T30)", value=str(row.get("thread_codes", "")), key=f"st_{row['id']}")
-                        sb1, sb2 = st.columns(2)
-                        if sb1.form_submit_button("Save Changes"):
-                            if db_ok:
-                                qry("UPDATE sellers SET name=%s, phone=%s, address=%s, thread_codes=%s WHERE id=%s",
-                                    (en.strip(), ep.strip(), ea.strip(), et.strip(), row["id"]))
-                            else:
-                                for s in st.session_state.sellers:
-                                    if s["id"] == row["id"]:
-                                        s.update({"name": en, "phone": ep, "address": ea, "thread_codes": et})
-                            st.success("Updated.")
-                            st.rerun()
-                        if sb2.form_submit_button("Delete Seller"):
-                            if db_ok:
-                                qry("DELETE FROM sellers WHERE id=%s", (row["id"],))
-                            else:
-                                st.session_state.sellers = [s for s in st.session_state.sellers if s["id"] != row["id"]]
-                            st.success(f"Deleted {row['name']}.")
-                            st.rerun()
+        search = st.text_input("Search sellers", placeholder="Name, phone, thread codes...")
+        query = "SELECT * FROM sellers WHERE 1=1"
+        if search:
+            query += f" AND (name LIKE '%{search}%' OR phone LIKE '%{search}%' OR address LIKE '%{search}%' OR thread_codes LIKE '%{search}%')"
+        query += " ORDER BY name"
+        sellers = execute_query(query)
+        if not sellers.empty:
+            for _, s in sellers.iterrows():
+                with st.expander(f"{s['name']} | {s.get('phone','N/A')} | Threads: {s.get('thread_codes','')}"):
+                    st.write(f"Phone: {s.get('phone','')}")
+                    st.write(f"Address: {s.get('address','')}")
+                    st.write(f"Thread Codes: {s.get('thread_codes','')}")
+                    if s.get('notes'): st.write(f"Notes: {s['notes']}")
+                    col1, col2 = st.columns(2)
+                    if col1.button("Edit", key=f"e_{s['id']}"):
+                        st.session_state[f'edit_seller_{s["id"]}'] = True
+                    if col2.button("Delete", key=f"d_{s['id']}"):
+                        execute_query("DELETE FROM sellers WHERE id=%s", (s['id'],), fetch=False)
+                        st.success("Deleted!")
+                        st.rerun()
+                    if st.session_state.get(f'edit_seller_{s["id"]}'):
+                        with st.form(f"form_{s['id']}"):
+                            nname = st.text_input("Name", value=s['name'])
+                            nphone = st.text_input("Phone", value=s.get('phone',''))
+                            naddr = st.text_area("Address", value=s.get('address',''))
+                            nthreads = st.text_input("Thread Codes", value=s.get('thread_codes',''))
+                            nnotes = st.text_area("Notes", value=s.get('notes',''))
+                            if st.form_submit_button("Save"):
+                                execute_query("UPDATE sellers SET name=%s, phone=%s, address=%s, thread_codes=%s, notes=%s WHERE id=%s",
+                                              (nname, nphone, naddr, nthreads, nnotes, s['id']), fetch=False)
+                                st.session_state[f'edit_seller_{s["id"]}'] = False
+                                st.success("Updated!")
+                                st.rerun()
         else:
             st.info("No sellers found.")
-
     with tab2:
-        with st.form("add_seller_form", clear_on_submit=True):
+        with st.form("add_seller"):
+            st.subheader("Register New Seller")
             c1, c2 = st.columns(2)
-            s_name    = c1.text_input("Seller Name")
-            s_phone   = c2.text_input("Phone Number")
-            s_address = c1.text_input("Address")
-            s_threads = c2.text_input("Thread Codes they sell  (e.g. T10, T20, T30)")
-            s_notes   = st.text_area("Notes (optional)")
-            if st.form_submit_button("Register Seller"):
-                if not s_name or not s_phone:
-                    st.error("Name and phone are required.")
-                else:
-                    if db_ok:
-                        qry("INSERT INTO sellers (name, phone, address, thread_codes, notes) VALUES (%s,%s,%s,%s,%s)",
-                            (s_name.strip(), s_phone.strip(), s_address.strip(), s_threads.strip(), s_notes.strip()))
-                    else:
-                        nid = max((s["id"] for s in st.session_state.sellers), default=0) + 1
-                        st.session_state.sellers.append({
-                            "id": nid, "name": s_name, "phone": s_phone,
-                            "address": s_address, "thread_codes": s_threads
-                        })
-                    st.success(f"Seller '{s_name}' registered.")
+            name = c1.text_input("Seller Name *")
+            phone = c2.text_input("Phone")
+            threads = c2.text_input("Thread Codes (e.g., T10, T20)")
+            address = c1.text_area("Address")
+            notes = st.text_area("Notes")
+            if st.form_submit_button("Register"):
+                if name:
+                    execute_query("INSERT INTO sellers (name, phone, address, thread_codes, notes) VALUES (%s,%s,%s,%s,%s)",
+                                  (name, phone, address, threads, notes), fetch=False)
+                    st.success(f"Seller '{name}' added!")
                     st.rerun()
+                else:
+                    st.error("Name required!")
 
-# ══════════════════════════════════════════════════════════════
-# CUSTOMER DIRECTORY
-# ══════════════════════════════════════════════════════════════
-elif page == "Customer Directory":
-    page_title("Records", "Customer Directory", "Who buys which threads")
-
-    tab1, tab2 = st.tabs(["View and Manage", "Add Customer"])
-
+def show_customers():
+    st.markdown('<p class="main-header">Customer Directory</p>', unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["View Customers", "Add Customer"])
     with tab1:
-        cq = st.text_input("", placeholder="Search by name, phone, address, or thread code...", label_visibility="collapsed", key="cust_search")
-        if db_ok:
-            sql = "SELECT id, name, phone, address, thread_codes FROM customers"
-            params = []
-            if cq:
-                like = f"%{cq.strip().lower()}%"
-                sql += " WHERE LOWER(name) LIKE %s OR LOWER(phone) LIKE %s OR LOWER(address) LIKE %s OR LOWER(thread_codes) LIKE %s"
-                params = [like, like, like, like]
-            sql += " ORDER BY name"
-            cdf = qry(sql, params or None, fetch=True)
-        else:
-            cdf = pd.DataFrame(st.session_state.customers)
-            if cq:
-                cdf = cdf[cdf.apply(lambda r: any(cq.lower() in str(r[c]).lower() for c in ["name", "phone", "address", "thread_codes"]), axis=1)]
-
-        if cdf is not None and not cdf.empty:
-            st.markdown(f"{len(cdf)} customer(s) found")
-            for _, row in cdf.iterrows():
-                with st.expander(f"{row['name']}  |  {row.get('phone', '--')}  |  Threads: {row.get('thread_codes', '--')}"):
-                    st.write(f"**Phone:** {row.get('phone', '--')}")
-                    st.write(f"**Address:** {row.get('address', '--')}")
-                    st.write(f"**Thread Codes:** {row.get('thread_codes', 'None assigned')}")
-
-                    if db_ok:
-                        hist = qry(
-                            "SELECT transaction_date, thread_code, quantity FROM transactions WHERE LOWER(party_name) LIKE %s AND transaction_type='SELL' ORDER BY transaction_date DESC LIMIT 10",
-                            (f"%{str(row['name']).lower()}%",), fetch=True
-                        )
-                        if hist is not None and not hist.empty:
-                            st.markdown("**Purchase History:**")
-                            st.dataframe(hist, use_container_width=True, hide_index=True)
-
-                    with st.form(f"edit_cust_{row['id']}"):
-                        ef1, ef2 = st.columns(2)
-                        en = ef1.text_input("Name",    value=str(row.get("name", "")),    key=f"cn_{row['id']}")
-                        ep = ef2.text_input("Phone",   value=str(row.get("phone", "")),   key=f"cp_{row['id']}")
-                        ea = ef1.text_input("Address", value=str(row.get("address", "")), key=f"ca_{row['id']}")
-                        et = ef2.text_input("Thread Codes they buy (e.g. T10, T40)", value=str(row.get("thread_codes", "")), key=f"ct_{row['id']}")
-                        cb1, cb2 = st.columns(2)
-                        if cb1.form_submit_button("Save Changes"):
-                            if db_ok:
-                                qry("UPDATE customers SET name=%s, phone=%s, address=%s, thread_codes=%s WHERE id=%s",
-                                    (en.strip(), ep.strip(), ea.strip(), et.strip(), row["id"]))
-                            else:
-                                for c in st.session_state.customers:
-                                    if c["id"] == row["id"]:
-                                        c.update({"name": en, "phone": ep, "address": ea, "thread_codes": et})
-                            st.success("Updated.")
-                            st.rerun()
-                        if cb2.form_submit_button("Delete Customer"):
-                            if db_ok:
-                                qry("DELETE FROM customers WHERE id=%s", (row["id"],))
-                            else:
-                                st.session_state.customers = [c for c in st.session_state.customers if c["id"] != row["id"]]
-                            st.success(f"Deleted {row['name']}.")
-                            st.rerun()
+        search = st.text_input("Search customers", placeholder="Name, phone, thread codes...")
+        query = "SELECT * FROM customers WHERE 1=1"
+        if search:
+            query += f" AND (name LIKE '%{search}%' OR phone LIKE '%{search}%' OR address LIKE '%{search}%' OR thread_codes LIKE '%{search}%')"
+        query += " ORDER BY name"
+        custs = execute_query(query)
+        if not custs.empty:
+            for _, c in custs.iterrows():
+                with st.expander(f"{c['name']} | {c.get('phone','N/A')} | Threads: {c.get('thread_codes','')}"):
+                    st.write(f"Phone: {c.get('phone','')}")
+                    st.write(f"Address: {c.get('address','')}")
+                    st.write(f"Thread Codes: {c.get('thread_codes','')}")
+                    if c.get('notes'): st.write(f"Notes: {c['notes']}")
+                    # Purchase history
+                    hist = execute_query(f"SELECT transaction_date, thread_code, quantity FROM transactions WHERE party_name LIKE '%{c['name']}%' AND transaction_type='SELL' ORDER BY transaction_date DESC LIMIT 10")
+                    if not hist.empty:
+                        st.write("Purchase History:")
+                        st.dataframe(hist, use_container_width=True, hide_index=True)
+                    col1, col2 = st.columns(2)
+                    if col1.button("Edit", key=f"ec_{c['id']}"):
+                        st.session_state[f'edit_cust_{c["id"]}'] = True
+                    if col2.button("Delete", key=f"dc_{c['id']}"):
+                        execute_query("DELETE FROM customers WHERE id=%s", (c['id'],), fetch=False)
+                        st.success("Deleted!")
+                        st.rerun()
+                    if st.session_state.get(f'edit_cust_{c["id"]}'):
+                        with st.form(f"cform_{c['id']}"):
+                            nname = st.text_input("Name", value=c['name'])
+                            nphone = st.text_input("Phone", value=c.get('phone',''))
+                            naddr = st.text_area("Address", value=c.get('address',''))
+                            nthreads = st.text_input("Thread Codes", value=c.get('thread_codes',''))
+                            nnotes = st.text_area("Notes", value=c.get('notes',''))
+                            if st.form_submit_button("Save"):
+                                execute_query("UPDATE customers SET name=%s, phone=%s, address=%s, thread_codes=%s, notes=%s WHERE id=%s",
+                                              (nname, nphone, naddr, nthreads, nnotes, c['id']), fetch=False)
+                                st.session_state[f'edit_cust_{c["id"]}'] = False
+                                st.success("Updated!")
+                                st.rerun()
         else:
             st.info("No customers found.")
-
     with tab2:
-        with st.form("add_cust_form", clear_on_submit=True):
+        with st.form("add_cust"):
+            st.subheader("Add New Customer")
             c1, c2 = st.columns(2)
-            cu_name    = c1.text_input("Customer Name")
-            cu_phone   = c2.text_input("Phone Number")
-            cu_address = c1.text_input("Address")
-            cu_threads = c2.text_input("Thread Codes they buy  (e.g. T10, T40)")
-            cu_notes   = st.text_area("Notes (optional)")
-            if st.form_submit_button("Add Customer"):
-                if not cu_name or not cu_phone:
-                    st.error("Name and phone are required.")
-                else:
-                    if db_ok:
-                        qry("INSERT INTO customers (name, phone, address, thread_codes, notes) VALUES (%s,%s,%s,%s,%s)",
-                            (cu_name.strip(), cu_phone.strip(), cu_address.strip(), cu_threads.strip(), cu_notes.strip()))
-                    else:
-                        nid = max((c["id"] for c in st.session_state.customers), default=0) + 1
-                        st.session_state.customers.append({
-                            "id": nid, "name": cu_name, "phone": cu_phone,
-                            "address": cu_address, "thread_codes": cu_threads
-                        })
-                    st.success(f"Customer '{cu_name}' added.")
+            name = c1.text_input("Customer Name *")
+            phone = c2.text_input("Phone")
+            threads = c2.text_input("Thread Codes they buy")
+            address = c1.text_area("Address")
+            notes = st.text_area("Notes")
+            if st.form_submit_button("Register"):
+                if name:
+                    execute_query("INSERT INTO customers (name, phone, address, thread_codes, notes) VALUES (%s,%s,%s,%s,%s)",
+                                  (name, phone, address, threads, notes), fetch=False)
+                    st.success(f"Customer '{name}' added!")
                     st.rerun()
+                else:
+                    st.error("Name required!")
 
-# ══════════════════════════════════════════════════════════════
-# TRANSACTIONS
-# ══════════════════════════════════════════════════════════════
-elif page == "Transactions":
-    page_title("Ledger", "Transaction History", "All buy and sell records")
-
-    c1, c2, c3 = st.columns(3)
-    f_type = c1.selectbox("Type", ["All", "BUY", "SELL", "DAMAGED", "RETURN"])
-    f_from = c2.date_input("From", value=datetime.date.today() - datetime.timedelta(days=30))
-    f_to   = c3.date_input("To",   value=datetime.date.today())
-    f_q    = st.text_input("", placeholder="Filter by thread code or party name...", label_visibility="collapsed")
-
-    if db_ok:
-        sql = """SELECT t.id, t.transaction_date as Date, t.transaction_type as Type, 
-                        t.thread_code as Code, th.thread_name as Name, t.party_name as Party, 
-                        t.quantity as Qty, t.notes as Notes 
-                 FROM transactions t
-                 LEFT JOIN threads th ON t.thread_code = th.thread_code
-                 WHERE t.transaction_date BETWEEN %s AND %s"""
-        params = [f_from.isoformat(), f_to.isoformat()]
-        if f_type != "All":
-            sql += " AND t.transaction_type = %s"
-            params.append(f_type)
-        if f_q:
-            sql += " AND (LOWER(t.thread_code) LIKE %s OR LOWER(t.party_name) LIKE %s)"
-            like = f"%{f_q.lower()}%"
-            params.extend([like, like])
-        sql += " ORDER BY t.id DESC"
-        df = qry(sql, params, fetch=True)
-    else:
-        df = pd.DataFrame(st.session_state.transactions)
-        if not df.empty:
-            df = df[(df["transaction_date"] >= f_from.isoformat()) & (df["transaction_date"] <= f_to.isoformat())]
-            if f_type != "All":
-                df = df[df["transaction_type"] == f_type]
-            if f_q:
-                df = df[df.apply(lambda r: f_q.lower() in str(r["thread_code"]).lower() or f_q.lower() in str(r["party_name"]).lower(), axis=1)]
-
-    if df is not None and not df.empty:
-        st.dataframe(df, use_container_width=True, hide_index=True)
-    else:
-        st.info("No records found matching filters.")
-
-# ══════════════════════════════════════════════════════════════
-# SEARCH
-# ══════════════════════════════════════════════════════════════
-elif page == "Search":
-    page_title("Global Search", "Universal Directory Search", "Find everything instantly")
-    q = st.text_input("", placeholder="Type any name, SKU code, phone number, location...")
-    if q:
-        q_low = q.strip().lower()
-        st.markdown("### Search Results")
-        
-        # Threads
-        if db_ok:
-            th = qry("SELECT thread_code, thread_name, category, current_stock FROM threads WHERE LOWER(thread_code) LIKE %s OR LOWER(thread_name) LIKE %s", (f"%{q_low}%", f"%{q_low}%"), fetch=True)
-        else:
-            th = pd.DataFrame([t for t in st.session_state.threads if q_low in t["thread_code"].lower() or q_low in t["thread_name"].lower()])
-            
-        if th is not None and not th.empty:
-            st.markdown(f"#### Threads ({len(th)})")
-            st.dataframe(th, use_container_width=True, hide_index=True)
-            
-        # Sellers
-        if db_ok:
-            sl = qry("SELECT name, phone, address, thread_codes FROM sellers WHERE LOWER(name) LIKE %s OR LOWER(thread_codes) LIKE %s", (f"%{q_low}%", f"%{q_low}%"), fetch=True)
-        else:
-            sl = pd.DataFrame([s for s in st.session_state.sellers if q_low in s["name"].lower() or q_low in s["thread_codes"].lower()])
-            
-        if sl is not None and not sl.empty:
-            st.markdown(f"#### Sellers ({len(sl)})")
-            st.dataframe(sl, use_container_width=True, hide_index=True)
-
-        # Customers
-        if db_ok:
-            cu = qry("SELECT name, phone, address, thread_codes FROM customers WHERE LOWER(name) LIKE %s OR LOWER(thread_codes) LIKE %s", (f"%{q_low}%", f"%{q_low}%"), fetch=True)
-        else:
-            cu = pd.DataFrame([c for c in st.session_state.customers if q_low in c["name"].lower() or q_low in c["thread_codes"].lower()])
-            
-        if cu is not None and not cu.empty:
-            st.markdown(f"#### Customers ({len(cu)})")
-            st.dataframe(cu, use_container_width=True, hide_index=True)
-            
-        if (th is None or th.empty) and (sl is None or sl.empty) and (cu is None or cu.empty):
-            st.warning("No records matched your search query.")
-
-# ══════════════════════════════════════════════════════════════
-# SETTINGS
-# ══════════════════════════════════════════════════════════════
-elif page == "Settings":
-    page_title("Configuration", "System Settings", "Manage global application controls")
-    with st.form("settings_form"):
-        st.subheader("General Settings")
-        cur_name = store_name
-        new_sname = st.text_input("Business / Store Name", value=cur_name)
-        if st.form_submit_button("Update Settings"):
-            if db_ok:
-                qry("INSERT INTO store_settings (setting_key, setting_value) VALUES ('store_name', %s) ON DUPLICATE KEY UPDATE setting_value=%s", (new_sname.strip(), new_sname.strip()))
+def show_transaction_form():
+    st.markdown('<p class="main-header">Record Transaction</p>', unsafe_allow_html=True)
+    threads = execute_query("SELECT thread_code, thread_name, current_stock FROM threads ORDER BY thread_name")
+    if threads.empty:
+        st.warning("Add threads first.")
+        return
+    with st.form("trans_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            opts = [f"{r['thread_code']} - {r['thread_name']} (Stock: {r['current_stock']})" for _, r in threads.iterrows()]
+            sel = st.selectbox("Thread *", opts)
+            code = sel.split(' - ')[0]
+            ttype = st.selectbox("Type *", ["SELL","BUY","DAMAGED","RETURN"])
+        with col2:
+            qty = st.number_input("Quantity *", min_value=1, value=1)
+            party = st.text_input("Party Name")
+            tdate = st.date_input("Date", value=date.today())
+        notes = st.text_area("Notes")
+        if st.form_submit_button("Record Transaction"):
+            if code and qty > 0:
+                execute_query("INSERT INTO transactions (transaction_date, transaction_type, thread_code, party_name, quantity, notes) VALUES (%s,%s,%s,%s,%s,%s)",
+                              (tdate.isoformat(), ttype, code, party, qty, notes), fetch=False)
+                if ttype in ["BUY","RETURN"]:
+                    execute_query("UPDATE threads SET current_stock = current_stock + %s WHERE thread_code = %s", (qty, code), fetch=False)
+                else:
+                    execute_query("UPDATE threads SET current_stock = GREATEST(current_stock - %s, 0) WHERE thread_code = %s", (qty, code), fetch=False)
+                st.success("Transaction recorded!")
+                st.rerun()
             else:
-                st.session_state.store_name = new_sname.strip()
-            st.success("Settings saved.")
+                st.error("Thread and quantity required.")
+
+def show_smart_search():
+    st.markdown('<p class="main-header">Smart Search</p>', unsafe_allow_html=True)
+    search = st.text_input("", placeholder="🔍 Search threads, sellers, customers, transactions...")
+    if search:
+        st.markdown("---")
+        threads_res = execute_query(f"SELECT 'Thread' as Type, thread_code, thread_name, category, current_stock FROM threads WHERE thread_code LIKE '%{search}%' OR thread_name LIKE '%{search}%' OR category LIKE '%{search}%' LIMIT 10")
+        sellers_res = execute_query(f"SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE name LIKE '%{search}%' OR phone LIKE '%{search}%' OR thread_codes LIKE '%{search}%' LIMIT 10")
+        custs_res = execute_query(f"SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE name LIKE '%{search}%' OR phone LIKE '%{search}%' OR thread_codes LIKE '%{search}%' LIMIT 10")
+        trans_res = execute_query(f"SELECT 'Transaction' as Type, transaction_date, transaction_type, thread_code, party_name, quantity FROM transactions WHERE thread_code LIKE '%{search}%' OR party_name LIKE '%{search}%' OR notes LIKE '%{search}%' ORDER BY transaction_date DESC LIMIT 10")
+        
+        total = len(threads_res)+len(sellers_res)+len(custs_res)+len(trans_res)
+        if total == 0:
+            st.info("No results.")
+        else:
+            if not threads_res.empty:
+                st.subheader("Threads")
+                st.dataframe(threads_res, use_container_width=True, hide_index=True)
+            if not sellers_res.empty:
+                st.subheader("Sellers")
+                st.dataframe(sellers_res, use_container_width=True, hide_index=True)
+            if not custs_res.empty:
+                st.subheader("Customers")
+                st.dataframe(custs_res, use_container_width=True, hide_index=True)
+            if not trans_res.empty:
+                st.subheader("Transactions")
+                st.dataframe(trans_res, use_container_width=True, hide_index=True)
+
+def show_transaction_history():
+    st.markdown('<p class="main-header">Transaction History</p>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        ftype = st.selectbox("Type", ["All","SELL","BUY","DAMAGED","RETURN"])
+    with col2:
+        dr = st.selectbox("Date Range", ["All Time","Today","Last 7 Days","Last 30 Days","This Month"])
+    with col3:
+        party_search = st.text_input("Search party name")
+    
+    query = "SELECT * FROM transactions WHERE 1=1"
+    if ftype != "All":
+        query += f" AND transaction_type='{ftype}'"
+    if dr == "Today":
+        query += " AND transaction_date = CURDATE()"
+    elif dr == "Last 7 Days":
+        query += " AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+    elif dr == "Last 30 Days":
+        query += " AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+    elif dr == "This Month":
+        query += " AND MONTH(transaction_date) = MONTH(CURDATE()) AND YEAR(transaction_date) = YEAR(CURDATE())"
+    if party_search:
+        query += f" AND party_name LIKE '%{party_search}%'"
+    query += " ORDER BY transaction_date DESC, id DESC"
+    
+    df = execute_query(query)
+    if not df.empty:
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.markdown(export_csv(df), unsafe_allow_html=True)
+    else:
+        st.info("No transactions found.")
+
+def show_settings():
+    st.markdown('<p class="main-header">Settings</p>', unsafe_allow_html=True)
+    with st.form("settings_form"):
+        settings = execute_query("SELECT * FROM store_settings")
+        sdict = {r['setting_key']: r['setting_value'] for _, r in settings.iterrows()} if not settings.empty else {}
+        store_name = st.text_input("Store Name", value=sdict.get('store_name','My Thread Business'))
+        owner_name = st.text_input("Owner Name", value=sdict.get('owner_name',''))
+        phone = st.text_input("Phone", value=sdict.get('phone',''))
+        address = st.text_area("Address", value=sdict.get('address',''))
+        if st.form_submit_button("Save Settings"):
+            for k, v in {'store_name':store_name, 'owner_name':owner_name, 'phone':phone, 'address':address}.items():
+                execute_query("INSERT INTO store_settings (setting_key, setting_value) VALUES (%s,%s) ON DUPLICATE KEY UPDATE setting_value=%s", (k, v, v), fetch=False)
+            st.success("Settings saved!")
             st.rerun()
+
+if __name__ == "__main__":
+    main()
