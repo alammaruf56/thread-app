@@ -1,5 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - Final Production (Case-Insensitive Search)
+# THREAD SUITE PRO - Parametrized Case-Insensitive Search
 # ============================================================
 
 import streamlit as st
@@ -33,7 +33,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ DATABASE CONFIG (ONLY ENV VARS) ------------------
+# ------------------ DATABASE CONFIG (ENV VARS) ------------------
 def get_db_config():
     return {
         "host": os.getenv("TIDB_HOST", ""),
@@ -91,6 +91,10 @@ def export_csv(df):
 
 # ------------------ MAIN APP ------------------
 def main():
+    # Show version to confirm latest code
+    git_commit = os.getenv("RENDER_GIT_COMMIT", "local")[:7]
+    st.sidebar.markdown(f"App version: `{git_commit}`")
+
     with st.sidebar:
         store_name = get_store_name()
         st.markdown(f"### {store_name}")
@@ -182,7 +186,7 @@ def show_dashboard():
     else:
         st.info("No transactions yet.")
 
-# ------------------ INVENTORY ------------------
+# ------------------ INVENTORY (CASE-INSENSITIVE) ------------------
 def show_inventory():
     st.markdown('<p class="main-header">Thread Inventory</p>', unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["View Stock", "Add Thread", "Manage Thread"])
@@ -199,10 +203,14 @@ def show_inventory():
             stock_filter = st.selectbox("Stock Status", ["All", "In Stock", "Low Stock", "Out of Stock"])
         
         query = "SELECT thread_code, thread_name, category, current_stock, unit, low_stock_threshold FROM threads WHERE 1=1"
+        params = []
         if search:
-            query += f" AND (LOWER(thread_code) LIKE LOWER('%{search}%') OR LOWER(thread_name) LIKE LOWER('%{search}%') OR LOWER(category) LIKE LOWER('%{search}%'))"
+            like_str = f"%{search}%"
+            query += " AND (LOWER(thread_code) LIKE LOWER(%s) OR LOWER(thread_name) LIKE LOWER(%s) OR LOWER(category) LIKE LOWER(%s))"
+            params.extend([like_str, like_str, like_str])
         if sel_cat != 'All':
-            query += f" AND LOWER(category) = LOWER('{sel_cat}')"
+            query += " AND LOWER(category) = LOWER(%s)"
+            params.append(sel_cat)
         if stock_filter == "In Stock":
             query += " AND current_stock > low_stock_threshold"
         elif stock_filter == "Low Stock":
@@ -211,7 +219,7 @@ def show_inventory():
             query += " AND current_stock <= 0"
         query += " ORDER BY current_stock ASC"
         
-        df = execute_query(query)
+        df = execute_query(query, tuple(params))
         if not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
             st.markdown(export_csv(df), unsafe_allow_html=True)
@@ -250,7 +258,7 @@ def show_inventory():
             sel = st.selectbox("Select thread", all_threads['thread_name'])
             if sel:
                 code = all_threads[all_threads['thread_name'] == sel]['thread_code'].iloc[0]
-                row = execute_query(f"SELECT * FROM threads WHERE thread_code='{code}'").iloc[0]
+                row = execute_query("SELECT * FROM threads WHERE thread_code=%s", (code,)).iloc[0]
                 with st.form("edit_thread_form"):
                     col1, col2 = st.columns(2)
                     with col1:
@@ -273,17 +281,20 @@ def show_inventory():
                         st.success("Deleted!")
                         st.rerun()
 
-# ------------------ SELLERS ------------------
+# ------------------ SELLERS (CASE-INSENSITIVE) ------------------
 def show_sellers():
     st.markdown('<p class="main-header">Seller Directory</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["View Sellers", "Add Seller"])
     with tab1:
         search = st.text_input("Search sellers", placeholder="Name, phone, thread codes...")
         query = "SELECT * FROM sellers WHERE 1=1"
+        params = []
         if search:
-            query += f" AND (LOWER(name) LIKE LOWER('%{search}%') OR LOWER(phone) LIKE LOWER('%{search}%') OR LOWER(address) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%'))"
+            like_str = f"%{search}%"
+            query += " AND (LOWER(name) LIKE LOWER(%s) OR LOWER(phone) LIKE LOWER(%s) OR LOWER(address) LIKE LOWER(%s) OR LOWER(thread_codes) LIKE LOWER(%s))"
+            params.extend([like_str]*4)
         query += " ORDER BY name"
-        sellers = execute_query(query)
+        sellers = execute_query(query, tuple(params))
         if not sellers.empty:
             for _, s in sellers.iterrows():
                 with st.expander(f"{s['name']} | {s.get('phone','N/A')} | Threads: {s.get('thread_codes','')}"):
@@ -331,17 +342,20 @@ def show_sellers():
                 else:
                     st.error("Name required!")
 
-# ------------------ CUSTOMERS ------------------
+# ------------------ CUSTOMERS (CASE-INSENSITIVE) ------------------
 def show_customers():
     st.markdown('<p class="main-header">Customer Directory</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["View Customers", "Add Customer"])
     with tab1:
         search = st.text_input("Search customers", placeholder="Name, phone, thread codes...")
         query = "SELECT * FROM customers WHERE 1=1"
+        params = []
         if search:
-            query += f" AND (LOWER(name) LIKE LOWER('%{search}%') OR LOWER(phone) LIKE LOWER('%{search}%') OR LOWER(address) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%'))"
+            like_str = f"%{search}%"
+            query += " AND (LOWER(name) LIKE LOWER(%s) OR LOWER(phone) LIKE LOWER(%s) OR LOWER(address) LIKE LOWER(%s) OR LOWER(thread_codes) LIKE LOWER(%s))"
+            params.extend([like_str]*4)
         query += " ORDER BY name"
-        custs = execute_query(query)
+        custs = execute_query(query, tuple(params))
         if not custs.empty:
             for _, c in custs.iterrows():
                 with st.expander(f"{c['name']} | {c.get('phone','N/A')} | Threads: {c.get('thread_codes','')}"):
@@ -349,7 +363,10 @@ def show_customers():
                     st.write(f"Address: {c.get('address','')}")
                     st.write(f"Thread Codes: {c.get('thread_codes','')}")
                     if c.get('notes'): st.write(f"Notes: {c['notes']}")
-                    hist = execute_query(f"SELECT transaction_date, thread_code, quantity FROM transactions WHERE LOWER(party_name) LIKE LOWER('%{c['name']}%') AND transaction_type='SELL' ORDER BY transaction_date DESC LIMIT 10")
+                    hist = execute_query(
+                        "SELECT transaction_date, thread_code, quantity FROM transactions WHERE LOWER(party_name) LIKE LOWER(%s) AND transaction_type='SELL' ORDER BY transaction_date DESC LIMIT 10",
+                        (f"%{c['name']}%",)
+                    )
                     if not hist.empty:
                         st.write("Purchase History:")
                         st.dataframe(hist, use_container_width=True, hide_index=True)
@@ -425,15 +442,19 @@ def show_transaction_form():
             else:
                 st.error("Thread and quantity required.")
 
-# ------------------ SMART SEARCH ------------------
+# ------------------ SMART SEARCH (CASE-INSENSITIVE) ------------------
 def show_smart_search():
     st.markdown('<p class="main-header">Smart Search</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Search by product code/name to find sellers & customers</p>', unsafe_allow_html=True)
     search = st.text_input("", placeholder="🔍 Search thread code or name...")
     if search:
         st.markdown("---")
-        # case-insensitive search for threads
-        threads_res = execute_query(f"SELECT thread_code, thread_name, category, current_stock FROM threads WHERE LOWER(thread_code) LIKE LOWER('%{search}%') OR LOWER(thread_name) LIKE LOWER('%{search}%')")
+        like_str = f"%{search}%"
+        # Threads
+        threads_res = execute_query(
+            "SELECT thread_code, thread_name, category, current_stock FROM threads WHERE LOWER(thread_code) LIKE LOWER(%s) OR LOWER(thread_name) LIKE LOWER(%s)",
+            (like_str, like_str)
+        )
         if not threads_res.empty:
             st.subheader("Matching Threads")
             st.dataframe(threads_res, use_container_width=True, hide_index=True)
@@ -444,22 +465,33 @@ def show_smart_search():
                     colA, colB = st.columns(2)
                     with colA:
                         st.markdown("**Sellers who supply this thread**")
-                        sell_df = execute_query(f"SELECT * FROM sellers WHERE LOWER(thread_codes) LIKE LOWER('%{code}%')")
+                        sell_df = execute_query(
+                            "SELECT * FROM sellers WHERE LOWER(thread_codes) LIKE LOWER(%s)",
+                            (f"%{code}%",)
+                        )
                         if not sell_df.empty:
                             st.dataframe(sell_df[['name','phone','address','thread_codes']], use_container_width=True, hide_index=True)
                         else:
                             st.write("No sellers found.")
                     with colB:
                         st.markdown("**Customers who buy this thread**")
-                        cust_df = execute_query(f"SELECT * FROM customers WHERE LOWER(thread_codes) LIKE LOWER('%{code}%')")
+                        cust_df = execute_query(
+                            "SELECT * FROM customers WHERE LOWER(thread_codes) LIKE LOWER(%s)",
+                            (f"%{code}%",)
+                        )
                         if not cust_df.empty:
                             st.dataframe(cust_df[['name','phone','address','thread_codes']], use_container_width=True, hide_index=True)
                         else:
                             st.write("No customers found.")
         else:
-            # direct search in sellers/customers
-            sellers_res = execute_query(f"SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE LOWER(name) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%')")
-            custs_res = execute_query(f"SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE LOWER(name) LIKE LOWER('%{search}%') OR LOWER(thread_codes) LIKE LOWER('%{search}%')")
+            sellers_res = execute_query(
+                "SELECT 'Seller' as Type, name, phone, thread_codes FROM sellers WHERE LOWER(name) LIKE LOWER(%s) OR LOWER(thread_codes) LIKE LOWER(%s)",
+                (like_str, like_str)
+            )
+            custs_res = execute_query(
+                "SELECT 'Customer' as Type, name, phone, thread_codes FROM customers WHERE LOWER(name) LIKE LOWER(%s) OR LOWER(thread_codes) LIKE LOWER(%s)",
+                (like_str, like_str)
+            )
             if not sellers_res.empty:
                 st.subheader("Sellers matching your search")
                 st.dataframe(sellers_res, use_container_width=True, hide_index=True)
@@ -469,7 +501,7 @@ def show_smart_search():
             if sellers_res.empty and custs_res.empty:
                 st.info("No results found.")
 
-# ------------------ TRANSACTION HISTORY ------------------
+# ------------------ TRANSACTION HISTORY (CASE-INSENSITIVE) ------------------
 def show_transaction_history():
     st.markdown('<p class="main-header">Transaction History</p>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
@@ -481,8 +513,10 @@ def show_transaction_history():
         party_search = st.text_input("Search party name")
     
     query = "SELECT * FROM transactions WHERE 1=1"
+    params = []
     if ftype != "All":
-        query += f" AND transaction_type='{ftype}'"
+        query += " AND transaction_type=%s"
+        params.append(ftype)
     if dr == "Today":
         query += " AND transaction_date = CURDATE()"
     elif dr == "Last 7 Days":
@@ -492,10 +526,11 @@ def show_transaction_history():
     elif dr == "This Month":
         query += " AND MONTH(transaction_date) = MONTH(CURDATE()) AND YEAR(transaction_date) = YEAR(CURDATE())"
     if party_search:
-        query += f" AND LOWER(party_name) LIKE LOWER('%{party_search}%')"
+        query += " AND LOWER(party_name) LIKE LOWER(%s)"
+        params.append(f"%{party_search}%")
     query += " ORDER BY transaction_date DESC, id DESC"
     
-    df = execute_query(query)
+    df = execute_query(query, tuple(params) if params else None)
     if not df.empty:
         st.dataframe(df, use_container_width=True, hide_index=True)
         st.markdown(export_csv(df), unsafe_allow_html=True)
