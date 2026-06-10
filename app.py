@@ -1,6 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - Final Clean Version
-# Run: streamlit run app.py
+# THREAD SUITE PRO - Final Version (supports env vars)
 # ============================================================
 
 import streamlit as st
@@ -8,6 +7,7 @@ import mysql.connector
 import pandas as pd
 from datetime import date
 import base64
+import os
 
 # Page configuration
 st.set_page_config(
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Minimal CSS - clean professional look
+# Minimal CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -35,20 +35,37 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ DATABASE CONNECTION ------------------
+# ------------------ DATABASE CONNECTION (secrets or env) ------------------
+def get_db_config():
+    """Get DB config from st.secrets first, else from environment variables."""
+    if "tidb" in st.secrets:
+        return {
+            "host": st.secrets["tidb"]["host"],
+            "port": st.secrets["tidb"]["port"],
+            "user": st.secrets["tidb"]["user"],
+            "password": st.secrets["tidb"]["password"],
+            "database": st.secrets["tidb"]["database"]
+        }
+    else:
+        # Fallback to environment variables (for Render, Hugging Face, etc.)
+        return {
+            "host": os.getenv("TIDB_HOST", "localhost"),
+            "port": int(os.getenv("TIDB_PORT", "4000")),
+            "user": os.getenv("TIDB_USER", ""),
+            "password": os.getenv("TIDB_PASSWORD", ""),
+            "database": os.getenv("TIDB_DATABASE", "thread_business")
+        }
+
 @st.cache_resource(ttl=3600)
 def get_db_connection():
     try:
-        # Check if secrets are properly configured
-        if "tidb" not in st.secrets:
-            st.error("Secrets not configured. Please add [tidb] section to Streamlit Cloud secrets.")
-            return None
+        cfg = get_db_config()
         conn = mysql.connector.connect(
-            host=st.secrets["tidb"]["host"],
-            port=st.secrets["tidb"]["port"],
-            user=st.secrets["tidb"]["user"],
-            password=st.secrets["tidb"]["password"],
-            database="thread_business",
+            host=cfg["host"],
+            port=cfg["port"],
+            user=cfg["user"],
+            password=cfg["password"],
+            database=cfg["database"],
             autocommit=True,
             connect_timeout=10
         )
@@ -132,9 +149,8 @@ def show_dashboard():
     today_sales = execute_query(f"SELECT COALESCE(SUM(quantity),0) as v FROM transactions WHERE transaction_type='SELL' AND transaction_date='{date.today()}'")
     total_inventory = execute_query("SELECT SUM(current_stock) as v FROM threads")
 
-    # If any empty dataframe (due to DB error), show error
     if total_threads.empty:
-        st.error("Unable to load dashboard data. Please check database connection.")
+        st.error("Unable to load dashboard. Check database connection.")
         return
 
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -491,6 +507,5 @@ def show_settings():
             st.success("Settings saved!")
             st.rerun()
 
-# ------------------ RUN ------------------
 if __name__ == "__main__":
     main()
