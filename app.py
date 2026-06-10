@@ -125,35 +125,44 @@ def main():
         show_settings()
 
 # ------------------ DASHBOARD ------------------
-def show_dashboard():
+ def show_dashboard():
     st.markdown('<p class="main-header">Business Dashboard</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Real-time overview</p>', unsafe_allow_html=True)
     
+    # COALESCE ensures no NULL
     total_threads = execute_query("SELECT COUNT(*) as c FROM threads")
     total_sellers = execute_query("SELECT COUNT(*) as c FROM sellers")
     total_customers = execute_query("SELECT COUNT(*) as c FROM customers")
     low_stock = execute_query("SELECT COUNT(*) as c FROM threads WHERE current_stock <= low_stock_threshold")
     today_sales = execute_query(f"SELECT COALESCE(SUM(quantity),0) as v FROM transactions WHERE transaction_type='SELL' AND transaction_date='{date.today()}'")
-    total_inventory = execute_query("SELECT SUM(current_stock) as v FROM threads")
-
+    total_inventory = execute_query("SELECT COALESCE(SUM(current_stock),0) as v FROM threads")
+    
     if total_threads.empty:
         st.error("Unable to load dashboard. Check database connection.")
         return
 
+    # Helper to safely get int value
+    def safe_int(df, col='v', default=0):
+        if df.empty:
+            return default
+        val = df[col].iloc[0]
+        return int(val) if val is not None else default
+
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{total_threads["c"].iloc[0]}</div><div class="metric-label">Thread Types</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_threads["c"].iloc[0])}</div><div class="metric-label">Thread Types</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{total_sellers["c"].iloc[0]}</div><div class="metric-label">Sellers</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_sellers["c"].iloc[0])}</div><div class="metric-label">Sellers</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{total_customers["c"].iloc[0]}</div><div class="metric-label">Customers</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_customers["c"].iloc[0])}</div><div class="metric-label">Customers</div></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{low_stock["c"].iloc[0]}</div><div class="metric-label">Low Stock</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(low_stock["c"].iloc[0])}</div><div class="metric-label">Low Stock</div></div>', unsafe_allow_html=True)
     with col5:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(total_inventory["v"].iloc[0]) if not total_inventory.empty else 0}</div><div class="metric-label">Total Stock</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(total_inventory)}</div><div class="metric-label">Total Stock</div></div>', unsafe_allow_html=True)
     with col6:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{int(today_sales["v"].iloc[0]) if not today_sales.empty else 0}</div><div class="metric-label">Sold Today</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value">{safe_int(today_sales)}</div><div class="metric-label">Sold Today</div></div>', unsafe_allow_html=True)
 
+  
     st.markdown("---")
     st.subheader("Low Stock Alerts")
     low_df = execute_query("""
