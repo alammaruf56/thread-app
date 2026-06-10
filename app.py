@@ -13,7 +13,7 @@ st.set_page_config(
 # আপনার অরিজিনাল সিএসএস স্টাইল (১০০% অপরিবর্তিত)
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght=400;500;600;700&family=Playfair+Display:wght=600;700&display=swap');
 html, body, [class*="css"], .stApp {
     background-color: #FDFBF7 !important;
     color: #111111 !important;
@@ -124,11 +124,12 @@ div[data-testid="stMetricLabel"] > div {
 </style>
 """, unsafe_allow_html=True)
 
-# ── DATABASE OPTIMIZATION (ল্যাগ ছাড়া ইনস্ট্যান্ট কানেকশন লজিক) ───
+# ── DATABASE CONTROL (চোকিং এবং হ্যাং হওয়া রোধ করার জন্য আল্ট্রা অপ্টিমাইজড) ───
 def get_db_connection():
     if "mysql" not in st.secrets:
         return None
     try:
+        # কোনো রিসোর্স ক্যাশ লক না রেখে প্রতি ক্লিকে ফ্রেশ লাইটওয়েট কানেকশন তৈরি হবে
         return mysql.connector.connect(
             host=st.secrets["mysql"]["host"],
             port=int(st.secrets["mysql"]["port"]),
@@ -136,12 +137,12 @@ def get_db_connection():
             password=st.secrets["mysql"]["password"],
             database=st.secrets["mysql"].get("database", "thread_business"),
             autocommit=True,
-            connection_timeout=5
+            connection_timeout=5  # ৫ সেকেন্ডের বেশি ডাটাবেস রেসপন্স না করলে রিলিজ করে দেবে চোকিং এড়াতে
         )
     except:
         return None
 
-# রিয়েল-টাইম লাইভ টেস্ট
+# কানেকশন প্রি-চেক
 _test_conn = get_db_connection()
 db_ok = _test_conn is not None
 if db_ok:
@@ -448,7 +449,7 @@ elif page == "Inventory and Stock":
                     st.rerun()
 
 # ══════════════════════════════════════════════════════════════
-# SELLER DIRECTORY (অরিজিনাল ডিজাইন ও Expander Form অক্ষুণ্ণ রাখা হয়েছে)
+# SELLER DIRECTORY
 # ══════════════════════════════════════════════════════════════
 elif page == "Seller Directory":
     page_title("Records", "Seller Directory", "Who sells which threads")
@@ -530,7 +531,7 @@ elif page == "Seller Directory":
                     st.rerun()
 
 # ══════════════════════════════════════════════════════════════
-# CUSTOMER DIRECTORY (অরিজিনাল ডিজাইন ও Expander Form অক্ষুণ্ণ রাখা হয়েছে)
+# CUSTOMER DIRECTORY
 # ══════════════════════════════════════════════════════════════
 elif page == "Customer Directory":
     page_title("Records", "Customer Directory", "Who buys which threads")
@@ -584,7 +585,7 @@ elif page == "Customer Directory":
                             else:
                                 for c in st.session_state.customers:
                                     if c["id"] == row["id"]:
-                                        c.update({"name": en, "phone": ep, "address": ea, "thread_codes": et})
+                                        s.update({"name": en, "phone": ep, "address": ea, "thread_codes": et})
                             st.success("Updated.")
                             st.rerun()
                         if cb2.form_submit_button("Delete Customer"):
