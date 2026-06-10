@@ -1,5 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - Final Version (supports env vars)
+# THREAD SUITE PRO - Final Version (env vars only)
 # ============================================================
 
 import streamlit as st
@@ -35,26 +35,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------ DATABASE CONNECTION (secrets or env) ------------------
+# ------------------ DATABASE CONFIG ------------------
 def get_db_config():
-    """Get DB config from st.secrets first, else from environment variables."""
-    if "tidb" in st.secrets:
-        return {
-            "host": st.secrets["tidb"]["host"],
-            "port": st.secrets["tidb"]["port"],
-            "user": st.secrets["tidb"]["user"],
-            "password": st.secrets["tidb"]["password"],
-            "database": st.secrets["tidb"]["database"]
-        }
-    else:
-        # Fallback to environment variables (for Render, Hugging Face, etc.)
-        return {
-            "host": os.getenv("TIDB_HOST", "localhost"),
-            "port": int(os.getenv("TIDB_PORT", "4000")),
-            "user": os.getenv("TIDB_USER", ""),
-            "password": os.getenv("TIDB_PASSWORD", ""),
-            "database": os.getenv("TIDB_DATABASE", "thread_business")
-        }
+    """Get DB config from environment variables only."""
+    return {
+        "host": os.getenv("TIDB_HOST", "localhost"),
+        "port": int(os.getenv("TIDB_PORT", "4000")),
+        "user": os.getenv("TIDB_USER", ""),
+        "password": os.getenv("TIDB_PASSWORD", ""),
+        "database": os.getenv("TIDB_DATABASE", "thread_business")
+    }
 
 @st.cache_resource(ttl=3600)
 def get_db_connection():
