@@ -125,7 +125,7 @@ def main():
         show_settings()
 
 # ------------------ DASHBOARD ------------------
- def show_dashboard():
+def show_dashboard():
     st.markdown('<p class="main-header">Business Dashboard</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Real-time overview</p>', unsafe_allow_html=True)
     
