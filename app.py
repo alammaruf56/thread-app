@@ -585,7 +585,7 @@ elif page == "Customer Directory":
                             else:
                                 for c in st.session_state.customers:
                                     if c["id"] == row["id"]:
-                                        s.update({"name": en, "phone": ep, "address": ea, "thread_codes": et})
+                                        c.update({"name": en, "phone": ep, "address": ea, "thread_codes": et})
                             st.success("Updated.")
                             st.rerun()
                         if cb2.form_submit_button("Delete Customer"):
