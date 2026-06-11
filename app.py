@@ -1,5 +1,5 @@
 # ============================================================
-# THREAD SUITE PRO - SQLite Version (Stable, No Auto-Browser)
+# THREAD SUITE PRO - Final Production Version
 # ============================================================
 
 import streamlit as st
@@ -19,7 +19,6 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { font-family: 'Inter', sans-serif; }
     .main-header { font-size: 2rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem; }
-    .sub-header { font-size: 1rem; color: #64748B; margin-bottom: 2rem; }
     .metric-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #E2E8F0; }
     .metric-value { font-size: 2rem; font-weight: 700; color: #1E293B; }
     .metric-label { font-size: 0.85rem; color: #64748B; margin-top: 0.25rem; }
