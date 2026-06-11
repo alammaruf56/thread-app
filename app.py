@@ -1,6 +1,7 @@
 # ============================================================
-# THREAD SUITE PRO - Standalone Executable Version
+# THREAD SUITE PRO - SQLite Version (Stable, No Auto-Browser)
 # ============================================================
+
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -8,23 +9,6 @@ from datetime import date
 import base64
 import os
 import sys
-import webbrowser
-import threading
-import time
-
-# ---------- AUTO OPEN BROWSER ----------
-def open_browser():
-    time.sleep(2)
-    webbrowser.open("http://localhost:8501")
-
-threading.Thread(target=open_browser, daemon=True).start()
-
-# ---------- DATABASE PATH ----------
-if getattr(sys, 'frozen', False):
-    # Running as compiled executable
-    DB_PATH = os.path.join(os.path.dirname(sys.executable), 'thread_business.db')
-else:
-    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thread_business.db')
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="Thread Suite Pro", page_icon="🧵", layout="wide", initial_sidebar_state="expanded")
@@ -46,6 +30,12 @@ st.markdown("""
     section[data-testid="stSidebar"] .stMarkdown { color: #F8FAFC; }
 </style>
 """, unsafe_allow_html=True)
+
+# ---------- DATABASE PATH ----------
+if getattr(sys, 'frozen', False):
+    DB_PATH = os.path.join(os.path.dirname(sys.executable), 'thread_business.db')
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thread_business.db')
 
 # ---------- DATABASE FUNCTIONS ----------
 def init_db():
@@ -178,7 +168,7 @@ def show_inventory():
     tab1, tab2, tab3 = st.tabs(["View Stock", "Add Thread", "Manage Thread"])
     with tab1:
         col1, col2, col3 = st.columns([3,1,1])
-        search = col1.text_input("Search by code, name, or category", placeholder="🔍 Type to filter...")
+        search = col1.text_input("Search by code, name, or category", placeholder="Type to filter...")
         cats = execute_query("SELECT DISTINCT category FROM threads WHERE category != ''")
         cat_list = ['All'] + (cats['category'].tolist() if not cats.empty else [])
         sel_cat = col2.selectbox("Category", cat_list)
@@ -388,7 +378,7 @@ def show_transaction_form():
 # ---------- SMART SEARCH ----------
 def show_smart_search():
     st.markdown('<p class="main-header">Smart Search</p>', unsafe_allow_html=True)
-    search = st.text_input("", placeholder="🔍 Search thread code or name...")
+    search = st.text_input("", placeholder="Search thread code or name...")
     if search:
         st.markdown("---")
         like = f"%{search}%"
